@@ -251,6 +251,46 @@ class MODRENAMER_OT_CreatePatternFromSelection(bpy.types.Operator):
         return {'CANCELLED'}
 
 
+class MODRENAMER_UL_ElementsList(bpy.types.UIList):
+    """要素を表示するためのカスタム UI リスト"""
+    
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        # data は NamingPattern、item は NamingElement
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            # 要素の有効/無効トグル
+            row = layout.row(align=True)
+            row.prop(item, "enabled", text="", emboss=False)
+            
+            # 要素の名前
+            if item.display_name:
+                text = item.display_name
+            else:
+                text = f"Element {index}"
+            
+            row.label(text=text)
+            
+            # タイプ表示
+            row.label(text=f"({item.element_type})")
+            
+        elif self.layout_type in {'GRID'}:
+            layout.alignment = 'CENTER'
+            layout.label(text="", icon_value=icon)
+
+
+# カスタム UI リストクラス - Text Items 用
+class MODRENAMER_UL_TextItemsList(bpy.types.UIList):
+    """テキスト項目を表示するためのカスタム UI リスト"""
+    
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        # data は NamingElement、item は NamingElementItem
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            layout.label(text=item.name)
+            
+        elif self.layout_type in {'GRID'}:
+            layout.alignment = 'CENTER'
+            layout.label(text="", icon_value=icon)
+
+
 class MODRENAMER_PT_MainPanel(bpy.types.Panel):
     """Main panel for the ModularRenamer addon"""
     bl_label = "Modular Renamer"
@@ -323,10 +363,10 @@ class MODRENAMER_PT_MainPanel(bpy.types.Panel):
         # Add element button
         row.operator("modrenamer.add_element", text="", icon='ADD')
         
-        # Element list
+        # Element list - カスタムUIリストを使用
         row = box.row()
         row.template_list(
-            "UI_UL_list", "element_list",
+            "MODRENAMER_UL_ElementsList", "element_list",
             pattern, "elements",
             pattern, "active_element_index"
         )
@@ -385,10 +425,10 @@ class MODRENAMER_PT_MainPanel(bpy.types.Panel):
         # Add item button
         row.operator("modrenamer.add_text_item", text="", icon='ADD').element_index = element_index
         
-        # Text items list
+        # Text items list - カスタムUIリストを使用
         row = layout.row()
         row.template_list(
-            "UI_UL_list", "text_item_list",
+            "MODRENAMER_UL_TextItemsList", "text_item_list",
             element, "items",
             element, "active_item_index"
         )
@@ -882,6 +922,8 @@ classes = [
     MODRENAMER_OT_BulkRename,
     MODRENAMER_OT_TestPattern,
     MODRENAMER_OT_CreatePatternFromSelection,
+    MODRENAMER_UL_ElementsList,
+    MODRENAMER_UL_TextItemsList,
     MODRENAMER_PT_MainPanel,
     MODRENAMER_OT_AddPattern,
     MODRENAMER_OT_RemovePattern,

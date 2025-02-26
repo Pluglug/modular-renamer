@@ -203,38 +203,45 @@ class NamingPattern(bpy.types.PropertyGroup):
     
     def remove_element(self, index):
         if 0 <= index < len(self.elements):
+            removed_order = self.elements[index].order
             self.elements.remove(index)
-            # Reorder remaining elements
-            for i, elem in enumerate(self.elements):
-                elem.order = i
+            
+            # 削除されたエレメントよりも高い順序値を持つエレメントの順序を調整
+            for elem in self.elements:
+                if elem.order > removed_order:
+                    elem.order -= 1
     
     def move_element_up(self, index):
+        """エレメントを上に移動（順序を前に）"""
         if 0 < index < len(self.elements):
-            # Swap order values
-            self.elements[index].order, self.elements[index-1].order = \
-                self.elements[index-1].order, self.elements[index].order
-            # Now resort the collection based on order
-            self.sort_elements()
-            # Update active index
+            # 現在のエレメントと1つ前のエレメントの順序値を取得
+            current_elem = self.elements[index]
+            prev_elem = self.elements[index-1]
+            
+            # 順序値を交換
+            temp_order = current_elem.order
+            current_elem.order = prev_elem.order
+            prev_elem.order = temp_order
+            
+            # UIリストの表示順序に反映するために、コレクション内の要素も交換
+            self.elements.move(index, index-1)
             self.active_element_index = index - 1
     
     def move_element_down(self, index):
+        """エレメントを下に移動（順序を後ろに）"""
         if 0 <= index < len(self.elements) - 1:
-            # Swap order values
-            self.elements[index].order, self.elements[index+1].order = \
-                self.elements[index+1].order, self.elements[index].order
-            # Now resort the collection based on order
-            self.sort_elements()
-            # Update active index
+            # 現在のエレメントと1つ後のエレメントの順序値を取得
+            current_elem = self.elements[index]
+            next_elem = self.elements[index+1]
+            
+            # 順序値を交換
+            temp_order = current_elem.order
+            current_elem.order = next_elem.order
+            next_elem.order = temp_order
+            
+            # UIリストの表示順序に反映するために、コレクション内の要素も交換
+            self.elements.move(index, index+1)
             self.active_element_index = index + 1
-    
-    def sort_elements(self):
-        # Create a sorted list of elements based on order
-        sorted_elements = sorted([(i, e.order) for i, e in enumerate(self.elements)], key=lambda x: x[1])
-        # Swap elements to match the sorted order
-        for new_idx, (old_idx, _) in enumerate(sorted_elements):
-            if new_idx != old_idx:
-                self.elements.move(old_idx, new_idx)
 
 
 class ModularRenamerPreferences(bpy.types.AddonPreferences):
