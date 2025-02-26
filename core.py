@@ -1,4 +1,5 @@
 import re
+import functools
 import datetime
 import random
 from abc import ABC, abstractmethod
@@ -10,6 +11,35 @@ def debug_log(message, enabled=False):
 
 # Constants for default debug settings
 DEBUG_RENAME = False
+
+
+def capture_group(func):
+    """
+    関数の戻り値を名前付きキャプチャグループで囲むデコレーター
+    """
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        group = self.id
+        return f'(?P<{group}>{func(self, *args, **kwargs)})'
+    return wrapper
+
+def maybe_with_separator(func):
+    """
+    要素の順序に基づいてセパレーターを追加するデコレーター
+    """
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        sep = f"(?:{re.escape(self.separator)})?"
+        order = self.order
+        result = func(self, *args, **kwargs)
+        if result:
+            if order == 0:  # 最初の要素
+                return f'{result}{sep}'
+            else:  # 順序が1以上の要素
+                return f'{sep}{result}'
+        else:
+            return result
+    return wrapper
 
 
 class NamingElementProcessor(ABC):
@@ -26,6 +56,7 @@ class NamingElementProcessor(ABC):
         self.enabled = element_data.enabled
         self.separator = element_data.separator
         self.element_type = element_data.element_type
+        self.order = element_data.order
         self.cache_invalidated = True
         self.compiled_pattern = None
         self._value = None
@@ -135,17 +166,15 @@ class TextElementProcessor(NamingElementProcessor):
         super().__init__(element_data)
         self.items = [item.name for item in element_data.items]
     
+    @maybe_with_separator
+    @capture_group
     def build_pattern(self):
-        """Build pattern that matches any of the predefined items"""
+        """Build pattern that matches any of the predefined items with separator"""
         if not self.items:
-            return f"(?P<{self.id}>)"
-        
-        # Escape special regex characters in items
+            return ""
+
         escaped_items = [re.escape(item) for item in self.items]
-        items_pattern = "|".join(escaped_items)
-        
-        # Pattern to match the item with optional separator
-        return f"(?P<{self.id}>(?:{items_pattern}))"
+        return "|".join(escaped_items)
     
     def generate_random_value(self):
         """Generate a random value from the available items"""
@@ -161,9 +190,11 @@ class FreeTextElementProcessor(NamingElementProcessor):
         super().__init__(element_data)
         self.default_text = element_data.default_text
     
+    @maybe_with_separator
+    @capture_group
     def build_pattern(self):
-        """Build pattern that captures any text"""
-        return f"(?P<{self.id}>[^_.\\-\\s]+)"
+        """Build pattern that captures any text with separator"""
+        return f".*{re.escape(self.default_text)}.*"  # Capture the configured text
     
     def generate_random_value(self):
         """Generate a random text value"""
@@ -185,7 +216,7 @@ class PositionElementProcessor(NamingElementProcessor):
         # X軸の値を取得
         self.xaxis_type = element_data.xaxis_type
         self.xaxis_enabled = element_data.xaxis_enabled
-        self.xaxis_values = self.xaxis_type.split("|") if self.xaxis_type else []
+        self.xaxis_values = self.xaxis_type.split("|") if self.xaxis_type and self.xaxis_enabled else []
         
         # Y軸の値を取得
         self.yaxis_enabled = element_data.yaxis_enabled
@@ -205,7 +236,7 @@ class PositionElementProcessor(NamingElementProcessor):
             self.position_values.extend(self.zaxis_values)
     
     def build_pattern(self):
-        """Build pattern for position indicators with their typical separator"""
+        """Build pattern for position indicators with appropriate separator based on order"""
         if not self.position_values:
             return f"(?P<{self.id}>)"
         
@@ -213,9 +244,13 @@ class PositionElementProcessor(NamingElementProcessor):
         escaped_positions = [re.escape(pos) for pos in self.position_values]
         positions_pattern = "|".join(escaped_positions)
         
-        # セパレーターを考慮したパターン
+        # 順序に基づいてセパレーターを適用
         sep = re.escape(self.separator)
-        return f"{sep}?(?P<{self.id}>(?:{positions_pattern}))$"
+        
+        if self.order == 0:  # 最初の要素
+            return f"(?P<{self.id}>{positions_pattern}){sep}?"
+        else:  # 順序が1以上の要素
+            return f"{sep}?(?P<{self.id}>{positions_pattern})"
     
     def generate_random_value(self):
         """Generate a random position value"""
@@ -231,9 +266,11 @@ class CounterElementProcessor(NamingElementProcessor):
         super().__init__(element_data)
         self.padding = element_data.padding
     
+    @maybe_with_separator
+    @capture_group
     def build_pattern(self):
-        """Build pattern for counters with padding"""
-        return f"(?P<{self.id}>\\d{{{self.padding}}})"
+        """Build pattern for counters with padding and separator"""
+        return f"\\d{{{self.padding}}}"
     
     def generate_random_value(self):
         """Generate a random counter value"""
@@ -252,10 +289,12 @@ class DateElementProcessor(NamingElementProcessor):
         super().__init__(element_data)
         self.date_format = element_data.date_format
     
+    @maybe_with_separator
+    @capture_group
     def build_pattern(self):
-        """Build a pattern that can match dates in various formats"""
-        # This is a simplified pattern that might need refinement
-        return f"(?P<{self.id}>\\d{{4}}\\d{{2}}\\d{{2}})"
+        """Build a pattern that can match dates in various formats with separator"""
+        # これは簡略化されたパターン。実際のアプリケーションに合わせて調整が必要かもしれません
+        return "\\d{4}\\d{2}\\d{2}"
     
     def generate_random_value(self):
         """Generate a current date value"""
@@ -269,9 +308,11 @@ class RegexElementProcessor(NamingElementProcessor):
         super().__init__(element_data)
         self.pattern = element_data.pattern
     
+    @maybe_with_separator
+    @capture_group
     def build_pattern(self):
-        """Use the custom pattern directly"""
-        return f"(?P<{self.id}>{self.pattern})"
+        """Use the custom pattern directly with separator"""
+        return self.pattern
     
     def generate_random_value(self):
         """Generate a placeholder for regex values"""
