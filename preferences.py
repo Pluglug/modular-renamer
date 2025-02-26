@@ -147,11 +147,29 @@ class NamingElement(bpy.types.PropertyGroup):
     )
     
     # For position elements
-    position_type: EnumProperty(
-        name="Position Type",
-        description="Type of position indicator",
-        items=get_position_enum_items(),
+    xaxis_type: EnumProperty(
+        name="X Axis Type",
+        description="Type of X-axis position indicator",
+        items=[(item[0], item[1], item[2]) for item in POSITION_ENUM_ITEMS["XAXIS"]],
         default='L|R'
+    )
+    
+    xaxis_enabled: BoolProperty(
+        name="X Axis Enabled",
+        description="Whether X-axis position is enabled",
+        default=True
+    )
+    
+    yaxis_enabled: BoolProperty(
+        name="Y Axis Enabled",
+        description="Whether Y-axis position is enabled",
+        default=False
+    )
+    
+    zaxis_enabled: BoolProperty(
+        name="Z Axis Enabled",
+        description="Whether Z-axis position is enabled",
+        default=False
     )
 
 
@@ -411,7 +429,13 @@ class ModularRenamerPreferences(bpy.types.AddonPreferences):
         # Add position element
         position = bone_pattern.add_element("position", "position", "Position")
         position.separator = "."
-        position.position_type = "L|R"
+        # X軸の設定
+        position.xaxis_type = "L|R"
+        position.xaxis_enabled = True
+        # Y軸の設定（デフォルトで無効だが、設定可能にする）
+        position.yaxis_enabled = False
+        # Z軸の設定（デフォルトで無効だが、設定可能にする）
+        position.zaxis_enabled = False
         
         return True
 

@@ -177,32 +177,51 @@ class FreeTextElementProcessor(NamingElementProcessor):
 
 
 class PositionElementProcessor(NamingElementProcessor):
-    """Processor for position indicator elements (L/R, etc)"""
+    """Processor for position indicator elements (L/R, Top/Bot, Fr/Bk, etc)"""
     
     def __init__(self, element_data):
         super().__init__(element_data)
-        self.position_type = element_data.position_type
         
-        # Parse position type to get the left/right values
-        self.position_values = self.position_type.split("|")
+        # X軸の値を取得
+        self.xaxis_type = element_data.xaxis_type
+        self.xaxis_enabled = element_data.xaxis_enabled
+        self.xaxis_values = self.xaxis_type.split("|") if self.xaxis_type else []
+        
+        # Y軸の値を取得
+        self.yaxis_enabled = element_data.yaxis_enabled
+        self.yaxis_values = POSITION_ENUM_ITEMS["YAXIS"][0][0].split("|") if self.yaxis_enabled else []
+        
+        # Z軸の値を取得
+        self.zaxis_enabled = element_data.zaxis_enabled
+        self.zaxis_values = POSITION_ENUM_ITEMS["ZAXIS"][0][0].split("|") if self.zaxis_enabled else []
+        
+        # すべての可能な位置値を組み合わせる
+        self.position_values = []
+        if self.xaxis_enabled and self.xaxis_values:
+            self.position_values.extend(self.xaxis_values)
+        if self.yaxis_enabled and self.yaxis_values:
+            self.position_values.extend(self.yaxis_values)
+        if self.zaxis_enabled and self.zaxis_values:
+            self.position_values.extend(self.zaxis_values)
     
     def build_pattern(self):
         """Build pattern for position indicators with their typical separator"""
-        if not self.position_values or len(self.position_values) != 2:
+        if not self.position_values:
             return f"(?P<{self.id}>)"
         
+        # 位置値をエスケープして正規表現パターンを構築
         escaped_positions = [re.escape(pos) for pos in self.position_values]
         positions_pattern = "|".join(escaped_positions)
         
-        # Position markers are often at the end with a specific separator
+        # セパレーターを考慮したパターン
         sep = re.escape(self.separator)
         return f"{sep}?(?P<{self.id}>(?:{positions_pattern}))$"
     
     def generate_random_value(self):
         """Generate a random position value"""
-        if self.position_values and len(self.position_values) == 2:
+        if self.position_values:
             return random.choice(self.position_values)
-        return random.choice(["L", "R"])
+        return "L"  # デフォルト値
 
 
 class CounterElementProcessor(NamingElementProcessor):

@@ -3,7 +3,9 @@ import random
 from bpy.props import StringProperty, BoolProperty, IntProperty, EnumProperty, CollectionProperty
 
 from . preferences import (
-    get_preferences, ELEMENT_TYPE_ITEMS,
+    get_preferences, 
+    ELEMENT_TYPE_ITEMS, 
+    POSITION_ENUM_ITEMS,
 )
 from . core import (
     NamespaceManager, NamingProcessor, PoseBoneObject,
@@ -448,10 +450,26 @@ class MODRENAMER_PT_MainPanel(bpy.types.Panel):
     
     def draw_position_element_properties(self, layout, element):
         """Draw properties for position elements in edit mode"""
-        row = layout.row()
-        row.label(text="Position Type:")
-        row = layout.row()
-        row.prop(element, "position_type", text="")
+        # X軸の設定
+        box = layout.box()
+        row = box.row()
+        row.prop(element, "xaxis_enabled", text="X Axis")
+        
+        if element.xaxis_enabled:
+            row = box.row()
+            row.label(text="X Axis Type:")
+            row = box.row()
+            row.prop(element, "xaxis_type", text="")
+        
+        # Y軸の設定
+        box = layout.box()
+        row = box.row()
+        row.prop(element, "yaxis_enabled", text="Y Axis (Top/Bot)")
+        
+        # Z軸の設定
+        box = layout.box()
+        row = box.row()
+        row.prop(element, "zaxis_enabled", text="Z Axis (Fr/Bk)")
     
     def draw_counter_element_properties(self, layout, element):
         """Draw properties for counter elements in edit mode"""
@@ -507,23 +525,64 @@ class MODRENAMER_PT_MainPanel(bpy.types.Panel):
     
     def draw_position_element(self, layout, element):
         """Draw UI for a position element in normal mode"""
-        # Parse the position type to get the left/right values
-        pos_parts = element.position_type.split("|")
-        if len(pos_parts) == 2:
-            left, right = pos_parts
-            row = layout.row(align=True)
-            
-            # Left position
-            op = row.operator("modrenamer.add_remove_element", text=left)
-            op.operation = 'add'
-            op.element_id = element.id
-            op.value = left
-            
-            # Right position
-            op = row.operator("modrenamer.add_remove_element", text=right)
-            op.operation = 'add'
-            op.element_id = element.id
-            op.value = right
+        # すべての有効な軸の値を表示
+        
+        # X軸の値
+        if element.xaxis_enabled and element.xaxis_type:
+            pos_parts = element.xaxis_type.split("|")
+            if len(pos_parts) == 2:
+                left, right = pos_parts
+                row = layout.row(align=True)
+                
+                # Left position
+                op = row.operator("modrenamer.add_remove_element", text=left)
+                op.operation = 'add'
+                op.element_id = element.id
+                op.value = left
+                
+                # Right position
+                op = row.operator("modrenamer.add_remove_element", text=right)
+                op.operation = 'add'
+                op.element_id = element.id
+                op.value = right
+        
+        # Y軸の値
+        if element.yaxis_enabled:
+            pos_parts = POSITION_ENUM_ITEMS["YAXIS"][0][0].split("|")
+            if len(pos_parts) == 2:
+                top, bot = pos_parts
+                row = layout.row(align=True)
+                
+                # Top position
+                op = row.operator("modrenamer.add_remove_element", text=top)
+                op.operation = 'add'
+                op.element_id = element.id
+                op.value = top
+                
+                # Bottom position
+                op = row.operator("modrenamer.add_remove_element", text=bot)
+                op.operation = 'add'
+                op.element_id = element.id
+                op.value = bot
+        
+        # Z軸の値
+        if element.zaxis_enabled:
+            pos_parts = POSITION_ENUM_ITEMS["ZAXIS"][0][0].split("|")
+            if len(pos_parts) == 2:
+                front, back = pos_parts
+                row = layout.row(align=True)
+                
+                # Front position
+                op = row.operator("modrenamer.add_remove_element", text=front)
+                op.operation = 'add'
+                op.element_id = element.id
+                op.value = front
+                
+                # Back position
+                op = row.operator("modrenamer.add_remove_element", text=back)
+                op.operation = 'add'
+                op.element_id = element.id
+                op.value = back
     
     def draw_counter_element(self, layout, element):
         """Draw UI for a counter element in normal mode"""
