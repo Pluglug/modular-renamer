@@ -181,14 +181,17 @@ class PositionElementProcessor(NamingElementProcessor):
     
     def __init__(self, element_data):
         super().__init__(element_data)
-        self.positions = [item.name for item in element_data.items]
+        self.position_type = element_data.position_type
+        
+        # Parse position type to get the left/right values
+        self.position_values = self.position_type.split("|")
     
     def build_pattern(self):
         """Build pattern for position indicators with their typical separator"""
-        if not self.positions:
+        if not self.position_values or len(self.position_values) != 2:
             return f"(?P<{self.id}>)"
         
-        escaped_positions = [re.escape(pos) for pos in self.positions]
+        escaped_positions = [re.escape(pos) for pos in self.position_values]
         positions_pattern = "|".join(escaped_positions)
         
         # Position markers are often at the end with a specific separator
@@ -197,8 +200,8 @@ class PositionElementProcessor(NamingElementProcessor):
     
     def generate_random_value(self):
         """Generate a random position value"""
-        if self.positions:
-            return random.choice(self.positions)
+        if self.position_values and len(self.position_values) == 2:
+            return random.choice(self.position_values)
         return random.choice(["L", "R"])
 
 

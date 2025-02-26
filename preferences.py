@@ -1,9 +1,12 @@
 import bpy
 from bpy.props import (
     StringProperty, BoolProperty, IntProperty, 
-    EnumProperty, CollectionProperty, PointerProperty
+    EnumProperty, CollectionProperty, PointerProperty,
+    FloatProperty
 )
 import json
+
+
 
 # Constants for default separator options
 SEPARATOR_ITEMS = [
@@ -22,6 +25,31 @@ ELEMENT_TYPE_ITEMS = [
     ('date', "Date", "Date in various formats"),
     ('regex', "RegEx", "Custom regular expression pattern")
 ]
+
+# Position enum items organized by axis
+POSITION_ENUM_ITEMS = {
+    "XAXIS": [
+        ('L|R', "L / R", "Upper case L/R", 1),
+        ('l|r', "l / r", "Lower case l/r", 2),
+        ('LEFT|RIGHT', "LEFT / RIGHT", "Full word LEFT/RIGHT", 3),
+        ('Left|Right', "Left / Right", "Full word Left/Right", 4),
+        ('left|right', "left / right", "Full word left/right", 5),
+    ],
+    "YAXIS": [
+        ('Top|Bot', "Top / Bot", "Upper case Top/Bot", 1),
+    ],
+    "ZAXIS": [
+        ('Fr|Bk', "Fr / Bk", "Upper case Fr/Bk", 1),
+    ]
+}
+
+# Convert position enum items to format required by EnumProperty
+def get_position_enum_items():
+    items = []
+    for axis, axis_items in POSITION_ENUM_ITEMS.items():
+        for value, name, description, number in axis_items:
+            items.append((value, name, description))
+    return items
 
 
 class NamingElementItem(bpy.types.PropertyGroup):
@@ -67,6 +95,7 @@ class NamingElement(bpy.types.PropertyGroup):
         min=0
     )
     
+    # For all elements - separator selection
     separator: EnumProperty(
         name="Separator",
         description="Character used to separate this element from the next",
@@ -79,6 +108,12 @@ class NamingElement(bpy.types.PropertyGroup):
         type=NamingElementItem,
         name="Items",
         description="Predefined text options for this element"
+    )
+    
+    # For text elements - active item index
+    active_item_index: IntProperty(
+        name="Active Item Index",
+        default=0
     )
     
     # For counter elements
@@ -110,6 +145,14 @@ class NamingElement(bpy.types.PropertyGroup):
         description="Default text to use",
         default=""
     )
+    
+    # For position elements
+    position_type: EnumProperty(
+        name="Position Type",
+        description="Type of position indicator",
+        items=get_position_enum_items(),
+        default='L|R'
+    )
 
 
 class NamingPattern(bpy.types.PropertyGroup):
@@ -138,6 +181,17 @@ class NamingPattern(bpy.types.PropertyGroup):
         description="Elements that make up this naming pattern"
     )
     
+    active_element_index: IntProperty(
+        name="Active Element Index",
+        default=0
+    )
+    
+    edit_mode: BoolProperty(
+        name="Edit Mode",
+        description="Whether the pattern is in edit mode",
+        default=False
+    )
+    
     # Add or remove an element
     def add_element(self, id, element_type, display_name):
         elem = self.elements.add()
@@ -153,6 +207,34 @@ class NamingPattern(bpy.types.PropertyGroup):
             # Reorder remaining elements
             for i, elem in enumerate(self.elements):
                 elem.order = i
+    
+    def move_element_up(self, index):
+        if 0 < index < len(self.elements):
+            # Swap order values
+            self.elements[index].order, self.elements[index-1].order = \
+                self.elements[index-1].order, self.elements[index].order
+            # Now resort the collection based on order
+            self.sort_elements()
+            # Update active index
+            self.active_element_index = index - 1
+    
+    def move_element_down(self, index):
+        if 0 <= index < len(self.elements) - 1:
+            # Swap order values
+            self.elements[index].order, self.elements[index+1].order = \
+                self.elements[index+1].order, self.elements[index].order
+            # Now resort the collection based on order
+            self.sort_elements()
+            # Update active index
+            self.active_element_index = index + 1
+    
+    def sort_elements(self):
+        # Create a sorted list of elements based on order
+        sorted_elements = sorted([(i, e.order) for i, e in enumerate(self.elements)], key=lambda x: x[1])
+        # Swap elements to match the sorted order
+        for new_idx, (old_idx, _) in enumerate(sorted_elements):
+            if new_idx != old_idx:
+                self.elements.move(old_idx, new_idx)
 
 
 class ModularRenamerPreferences(bpy.types.AddonPreferences):
@@ -215,6 +297,8 @@ class ModularRenamerPreferences(bpy.types.AddonPreferences):
                     element_data["date_format"] = element.date_format
                 elif element.element_type == 'free_text':
                     element_data["default_text"] = element.default_text
+                elif element.element_type == 'position':
+                    element_data["position_type"] = element.position_type
                 
                 pattern_data["elements"].append(element_data)
             
@@ -269,6 +353,9 @@ class ModularRenamerPreferences(bpy.types.AddonPreferences):
                     
                     if element.element_type == 'free_text' and "default_text" in element_data:
                         element.default_text = element_data["default_text"]
+                    
+                    if element.element_type == 'position' and "position_type" in element_data:
+                        element.position_type = element_data["position_type"]
             
             return True
         
@@ -317,9 +404,7 @@ class ModularRenamerPreferences(bpy.types.AddonPreferences):
         # Add position element
         position = bone_pattern.add_element("position", "position", "Position")
         position.separator = "."
-        for name in ["L", "R", "Top", "Bot", "Fr", "Bk"]:
-            item = position.items.add()
-            item.name = name
+        position.position_type = "L|R"
         
         return True
 
