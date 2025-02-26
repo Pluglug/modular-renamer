@@ -23,6 +23,98 @@ RENAMABLE_OBJECT_TYPES = [
 ]
 
 
+class ModRenamerOperator(bpy.types.Operator):
+    """ModularRenamer のリネーム操作を実行するオペレーター"""
+    bl_idname = "modrenamer.rename"
+    bl_label = "Rename Objects"
+    
+    rename_mode: bpy.props.EnumProperty(
+        name="Collision Mode",
+        description="How to handle name collisions",
+        items=[
+            ('NEVER', "Add Number", "Add number suffix to the new name if collision occurs"),
+            ('ALWAYS', "Force New Name", "Force the new name and rename existing objects if needed"),
+            ('SAME_ROOT', "Smart Rename", "Only rename existing objects that share the same name root")
+        ],
+        default='SAME_ROOT'
+    )
+    
+    def execute(self, context):
+        prefs = get_preferences()
+        active_idx = prefs.active_pattern_index
+        
+        if active_idx >= len(prefs.patterns):
+            self.report({'ERROR'}, "No active naming pattern selected")
+            return {'CANCELLED'}
+        
+        pattern = prefs.patterns[active_idx]
+        processor = NamingProcessor(pattern)
+        
+        # 選択オブジェクトにリネーム処理を適用
+        results = []
+        for obj in context.selected_objects:
+            obj_wrapper = create_renameable_object(obj, namespace_manager, processor)
+            obj_wrapper.set_rename_mode(self.rename_mode)
+            
+            # 名前パターンを分析して新しい名前を生成
+            obj_wrapper.analyze_current_name()
+            obj_wrapper.update_elements({})  # パターンに基づく名前を生成
+            
+            # 名前変更を適用
+            result = obj_wrapper.apply_new_name()
+            if result:
+                results.append(result)
+        
+        # 結果に基づいてフィードバック
+        self._report_results(results)
+        
+        return {'FINISHED'}
+    
+    def _report_results(self, results):
+        """リネーム結果に基づくフィードバックを表示"""
+        if not results:
+            self.report({'INFO'}, "No objects were renamed")
+            return
+        
+        # 結果をカテゴリ分け
+        unchanged = []
+        renamed = []
+        collision_adjusted = []
+        collision_forced = []
+        
+        for result in results:
+            if len(result) == 3:  # IDの場合は結果コードがある
+                old_name, new_name, code = result
+                if code == 'UNCHANGED' or code == 'UNCHANGED_COLLISION':
+                    unchanged.append((old_name, new_name))
+                elif code == 'RENAMED_NO_COLLISION':
+                    renamed.append((old_name, new_name))
+                elif code == 'RENAMED_COLLISION_ADJUSTED':
+                    collision_adjusted.append((old_name, new_name))
+                elif code == 'RENAMED_COLLISION_FORCED':
+                    collision_forced.append((old_name, new_name))
+            else:  # IDでない場合
+                old_name, new_name = result
+                renamed.append((old_name, new_name))
+        
+        # レポートメッセージを構築
+        message_parts = []
+        
+        if renamed:
+            message_parts.append(f"Renamed {len(renamed)} objects")
+        
+        if collision_adjusted:
+            message_parts.append(f"{len(collision_adjusted)} names adjusted to avoid collisions")
+        
+        if collision_forced:
+            message_parts.append(f"{len(collision_forced)} existing objects renamed to accommodate new names")
+        
+        if unchanged:
+            message_parts.append(f"{len(unchanged)} objects unchanged")
+        
+        self.report({'INFO'}, ". ".join(message_parts))
+
+
 class MODRENAMER_OT_AddRemoveNameElement(bpy.types.Operator):
     """Add or remove a naming element from selected objects"""
     bl_idname = "modrenamer.add_remove_element"
@@ -349,6 +441,9 @@ class MODRENAMER_PT_MainPanel(bpy.types.Panel):
                     layout.label(text="Elements:")
                     self.draw_pattern_elements(layout, pattern)
                     
+                    # Rename panel
+                    self.draw_rename_panel(context, layout)
+
                     # Actions
                     layout.separator()
                     row = layout.row(align=True)
@@ -490,7 +585,77 @@ class MODRENAMER_PT_MainPanel(bpy.types.Panel):
         """Draw properties for regex elements in edit mode"""
         row = layout.row()
         row.prop(element, "pattern", text="Pattern")
-    
+
+    def draw_rename_panel(self, context, layout):
+        """リネームパネルの描画（衝突管理機能付き）"""
+        prefs = get_preferences()
+        pattern = prefs.patterns[prefs.active_pattern_index]
+        
+        box = layout.box()
+        box.label(text="Rename Settings", icon='SORTALPHA')
+        
+        # 衝突モード選択
+        row = box.row()
+        row.label(text="Collision Handling:")
+        row = box.row()
+        row.prop(context.scene, "modrenamer_collision_mode", expand=True)
+        
+        # 選択オブジェクトのプレビュー
+        if context.selected_objects:
+            box.separator()
+            box.label(text="Selected Objects:", icon='OBJECT_DATA')
+            
+            # 最大5つの選択オブジェクトを表示
+            for i, obj in enumerate(context.selected_objects[:5]):
+                row = box.row()
+                row.label(text=obj.name, icon='OBJECT_DATA')
+                
+                # プレビュー名の生成（実際のリネーム前のシミュレーション）
+                preview_name = generate_preview_name(obj, pattern)
+                result, adjusted_name = simulate_rename_result(
+                    obj, preview_name, context.scene.modrenamer_collision_mode
+                )
+                
+                # 結果に応じたアイコンとテキスト
+                icon = 'NONE'
+                if result == 'UNCHANGED':
+                    icon = 'CHECKBOX_DEHLT'
+                elif result == 'RENAMED_NO_COLLISION':
+                    icon = 'CHECKMARK'
+                elif result == 'RENAMED_COLLISION_ADJUSTED':
+                    icon = 'ERROR'
+                elif result == 'RENAMED_COLLISION_FORCED':
+                    icon = 'FORCE_LENNARDJONES'
+                
+                row.label(text=f"→ {adjusted_name}", icon=icon)
+            
+            # 5つ以上選択されている場合
+            if len(context.selected_objects) > 5:
+                box.label(text=f"...and {len(context.selected_objects) - 5} more objects")
+        
+        # リネーム実行ボタン
+        row = box.row(align=True)
+        row.operator("modrenamer.rename", text="Rename", icon='SORTALPHA')
+        
+        # 詳細オプションの展開可能セクション
+        box.separator()
+        row = box.row()
+        row.prop(context.scene, "modrenamer_show_advanced", icon='DISCLOSURE_TRI_DOWN' if context.scene.modrenamer_show_advanced else 'DISCLOSURE_TRI_RIGHT', emboss=False)
+        row.label(text="Advanced Options")
+        
+        if context.scene.modrenamer_show_advanced:
+            # カウンター関連のオプション
+            counter_element = find_counter_element(pattern)
+            if counter_element:
+                box.separator()
+                row = box.row()
+                row.label(text="Counter Style:")
+                row.prop(counter_element, "use_blender_style", text="Use Blender Style (.001)")
+                
+                row = box.row()
+                row.label(text="Counter Padding:")
+                row.prop(counter_element, "padding", text="")
+
     def draw_pattern_elements(self, layout, pattern):
         """Draw the elements of a pattern for renaming (non-edit mode)"""
         for element in sorted(pattern.elements, key=lambda e: e.order):
