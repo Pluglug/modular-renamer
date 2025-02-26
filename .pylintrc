@@ -1,0 +1,33 @@
+[MASTER]
+ignore=__pycache__, .vscode, _source, .git, .env, venv
+
+disable=
+    too-few-public-methods,
+    missing-module-docstring,
+    missing-function-docstring,
+    missing-class-docstring,
+    
+    fixme,
+    logging-format-interpolation,
+    
+    no-member,
+    no-name-in-module,
+    c-extension-no-member,
+
+    invalid-name,
+    wrong-import-order,
+    ungrouped-imports,
+    trailing-whitespace,
+
+[FORMAT]
+max-line-length=88
+
+[BASIC]
+variable-rgx=[a-z_][a-z0-9_]{1,30}$
+
+[MESSAGES CONTROL]
+confidence=HIGH
+
+[REPORTS]
+output-format=text
+reports=no
