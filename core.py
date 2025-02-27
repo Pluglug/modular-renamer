@@ -265,13 +265,22 @@ class CounterElementProcessor(NamingElementProcessor):
     def __init__(self, element_data):
         super().__init__(element_data)
         self.padding = element_data.padding
+        self.counter_type = element_data.counter_type  # 'custom' or 'blender'
     
-    @maybe_with_separator
-    @capture_group
+    # @maybe_with_separator
+    # @capture_group
     def build_pattern(self):
         """Build pattern for counters with padding and separator"""
-        return f"\\d{{{self.padding}}}"
-    
+        sep = re.escape(self.separator)
+
+        if self.counter_type == 'blender':
+            return f"(?P<{self.id}>{sep}\\d{{{self.padding}}})$"
+        else:  # 'custom'
+            if self.order == 0:  # 最初の要素
+                return f"(?P<{self.id}>\\d{{{self.padding}}}){sep}?"
+            else:  # 他の要素
+                return f"{sep}?(?P<{self.id}>\\d{{{self.padding}}})"
+
     def generate_random_value(self):
         """Generate a random counter value"""
         max_value = 10 ** self.padding - 1

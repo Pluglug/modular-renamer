@@ -334,9 +334,10 @@ class MODRENAMER_PT_MainPanel(bpy.types.Panel):
                 # Edit mode toggle
                 row = layout.row()
                 if pattern.edit_mode:
-                    row.operator("modrenamer.toggle_edit_mode", text="Exit Edit Mode", icon='CHECKBOX_HLT')
+                    row.alert = True
+                    row.operator("modrenamer.toggle_edit_mode", text="Exit Edit Mode", icon='SCREEN_BACK')
                 else:
-                    row.operator("modrenamer.toggle_edit_mode", text="Enter Edit Mode", icon='CHECKBOX_DEHLT')
+                    row.operator("modrenamer.toggle_edit_mode", text="Enter Edit Mode", icon='SETTINGS')
                 
                 # Elements section
                 layout.separator()
@@ -394,13 +395,18 @@ class MODRENAMER_PT_MainPanel(bpy.types.Panel):
             row = ele_box.row()
             row.label(text=f"Type: {element.element_type}")
             
-            # Separator (not available for first element)
-            if element.order > 0:
-                row = ele_box.row()
-                row.prop(element, "separator", text="Separator")
+            # Separator (disabled for first element)
+            row = ele_box.row()
+            row.enabled = element.order > 0
+            row.prop(element, "separator", text="Separator")
             
             # Element-specific properties
             self.draw_element_properties(ele_box, element, pattern.active_element_index)
+        else:
+
+            ele_box = layout.box()
+            row = ele_box.row()
+            row.label(text="No element selected.")
     
     def draw_element_properties(self, layout, element, element_index):
         """Draw the properties specific to each element type in edit mode"""
@@ -522,7 +528,12 @@ class MODRENAMER_PT_MainPanel(bpy.types.Panel):
             op.operation = 'add'
             op.element_id = element.id
             op.value = item.name
-    
+        
+        row = layout.row(align=True)
+        op = row.operator("modrenamer.add_remove_element", text="Remove", icon='X')
+        op.operation = 'delete'
+        op.element_id = element.id
+
     def draw_position_element(self, layout, element):
         """Draw UI for a position element in normal mode"""
         # すべての有効な軸の値を表示
@@ -592,7 +603,12 @@ class MODRENAMER_PT_MainPanel(bpy.types.Panel):
             op.operation = 'add'
             op.element_id = element.id
             op.value = str(i)
-    
+        
+        row = layout.row(align=True)
+        op = row.operator("modrenamer.add_remove_element", text="Remove", icon='X')
+        op.operation = 'delete'
+        op.element_id = element.id
+
     def draw_free_text_element(self, layout, element):
         """Draw UI for a free text element in normal mode"""
         row = layout.row(align=True)
@@ -601,6 +617,11 @@ class MODRENAMER_PT_MainPanel(bpy.types.Panel):
         op.operation = 'add'
         op.element_id = element.id
         op.value = element.default_text
+
+        row = layout.row(align=True)
+        op = row.operator("modrenamer.add_remove_element", text="Remove", icon='X')
+        op.operation = 'delete'
+        op.element_id = element.id
     
     def draw_date_element(self, layout, element):
         """Draw UI for a date element in normal mode"""
@@ -610,12 +631,27 @@ class MODRENAMER_PT_MainPanel(bpy.types.Panel):
         op.operation = 'add'
         op.element_id = element.id
         op.value = "date"  # Will be formatted when applied
+
+        row = layout.row(align=True)
+        op = row.operator("modrenamer.add_remove_element", text="Remove", icon='X')
+        op.operation = 'delete'
+        op.element_id = element.id
     
     def draw_regex_element(self, layout, element):
         """Draw UI for a regex element in normal mode"""
         row = layout.row()
         row.prop(element, "pattern", text="Pattern")
 
+        row = layout.row(align=True)
+        op = row.operator("modrenamer.add_remove_element", text="Add", icon='CHECKMARK')
+        op.operation = 'add'
+        op.element_id = element.id
+        op.value = element.pattern
+
+        row = layout.row(align=True)
+        op = row.operator("modrenamer.add_remove_element", text="Remove", icon='X')
+        op.operation = 'delete'
+        op.element_id = element.id
 
 class MODRENAMER_OT_AddPattern(bpy.types.Operator):
     """Add a new naming pattern"""
