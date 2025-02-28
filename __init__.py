@@ -15,14 +15,17 @@ from . import preferences
 from . import core
 from . import ui
 
+
 # Registration
 def register():
     preferences.register()
     ui.register()
 
+
 def unregister():
     ui.unregister()
     preferences.unregister()
+
 
 if __name__ == "__main__":
     register()
