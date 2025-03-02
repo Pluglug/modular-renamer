@@ -15,7 +15,7 @@ from bpy.props import (
     CollectionProperty,
     PointerProperty,
 )
-from bpy.types import Operator, AddonPreferences, PropertyGroup
+from bpy.types import Operator, PropertyGroup
 
 # ANSIカラーコード
 COLORS = {
@@ -276,7 +276,7 @@ class ModuleLoggerSettings(PropertyGroup):
         ],
         name="Log Level",
         description="このモジュールのログレベル",
-        default="INFO",
+        default="DEBUG",
         update=lambda self, context: self.id_data.update_logger_settings(context),
     )
 
@@ -301,7 +301,7 @@ class AddonLoggerPreferencesMixin:
         ],
         name="Log Level",
         description="デフォルトのログレベル",
-        default="INFO",
+        default="DEBUG",
         update=lambda self, context: self.update_logger_settings(context),
     )
 
@@ -509,21 +509,17 @@ def get_logger(module_name):
     return LoggerRegistry.get_logger(module_name)
 
 
-# 登録用クラス
-# classes = (
-#     ModuleLoggerSettings,
-#     LOGGER_UL_modules,
-#     LOGGER_OT_export_logs,
-#     LOGGER_OT_clear_logs,
-# )
+def register():
+    from ..addon import prefs
+    pr = prefs()
 
-# def register():
-#     for cls in classes:
-#         bpy.utils.register_class(cls)
+    # ロガー設定を登録
+    mods = LoggerRegistry.get_all_loggers()
+    for module_name, logger in mods.items():
+        pr.register_module(module_name, "DEBUG")
 
-# def unregister():
-#     for cls in reversed(classes):
-#         bpy.utils.unregister_class(cls)
+    # ロガー設定を適用
+    pr.update_logger_settings()
 
 
 # 使用例 - 実際のアドオンでの利用方法
