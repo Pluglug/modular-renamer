@@ -1,3 +1,5 @@
+DEPENDS_ON = ["utils.logging"]
+
 import bpy
 from bpy.props import (
     StringProperty,
@@ -9,6 +11,8 @@ from bpy.props import (
     FloatProperty,
 )
 import json
+
+from .utils.logging import AddonLoggerPreferencesMixin
 
 
 # Constants for default separator options
@@ -244,7 +248,10 @@ class NamingPattern(bpy.types.PropertyGroup):
             self.active_element_index = index + 1
 
 
-class ModularRenamerPreferences(bpy.types.AddonPreferences):
+class ModularRenamerPreferences(
+    AddonLoggerPreferencesMixin,
+    bpy.types.AddonPreferences,
+):
     """Addon preferences for ModularRenamer"""
 
     bl_idname = "modular-renamer"
@@ -459,21 +466,25 @@ class ModularRenamerPreferences(bpy.types.AddonPreferences):
 
         return True
 
+    def draw(self, context):
+        layout = self.layout
+        self.draw_logger_preferences(layout)
+
 
 # Registration
-classes = [NamingElementItem, NamingElement, NamingPattern, ModularRenamerPreferences]
+# classes = [NamingElementItem, NamingElement, NamingPattern, ModularRenamerPreferences]
 
 
-def register():
-    for cls in classes:
-        bpy.utils.register_class(cls)
+# def register():
+#     for cls in classes:
+#         bpy.utils.register_class(cls)
 
 
-def unregister():
-    for cls in reversed(classes):
-        bpy.utils.unregister_class(cls)
+# def unregister():
+#     for cls in reversed(classes):
+#         bpy.utils.unregister_class(cls)
 
 
-# Utility function to get preferences
-def get_preferences():
-    return bpy.context.preferences.addons["modular-renamer"].preferences
+# # Utility function to get preferences
+# def get_preferences():
+#     return bpy.context.preferences.addons["modular-renamer"].preferences

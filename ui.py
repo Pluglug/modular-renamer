@@ -8,8 +8,9 @@ from bpy.props import (
     CollectionProperty,
 )
 
+from .addon import prefs
+
 from .preferences import (
-    get_preferences,
     ELEMENT_TYPE_ITEMS,
     POSITION_ENUM_ITEMS,
 )
@@ -54,14 +55,14 @@ class MODRENAMER_OT_AddRemoveNameElement(bpy.types.Operator):
     )
 
     def execute(self, context):
-        prefs = get_preferences()
-        active_idx = prefs.active_pattern_index
+        pr = prefs()
+        active_idx = pr.active_pattern_index
 
-        if active_idx >= len(prefs.patterns):
+        if active_idx >= len(pr.patterns):
             self.report({"ERROR"}, "No active naming pattern selected")
             return {"CANCELLED"}
 
-        pattern = prefs.patterns[active_idx]
+        pattern = pr.patterns[active_idx]
         processor = NamingProcessor(pattern)
 
         # Apply to selected objects based on object type
@@ -132,14 +133,14 @@ class MODRENAMER_OT_BulkRename(bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):
-        prefs = get_preferences()
-        active_idx = prefs.active_pattern_index
+        pr = prefs()
+        active_idx = pr.active_pattern_index
 
-        if active_idx >= len(prefs.patterns):
+        if active_idx >= len(pr.patterns):
             self.report({"ERROR"}, "No active naming pattern selected")
             return {"CANCELLED"}
 
-        pattern = prefs.patterns[active_idx]
+        pattern = pr.patterns[active_idx]
         processor = NamingProcessor(pattern)
 
         # Apply to selected objects based on object type
@@ -217,14 +218,14 @@ class MODRENAMER_OT_TestPattern(bpy.types.Operator):
     )
 
     def execute(self, context):
-        prefs = get_preferences()
-        active_idx = prefs.active_pattern_index
+        pr = prefs()
+        active_idx = pr.active_pattern_index
 
-        if active_idx >= len(prefs.patterns):
+        if active_idx >= len(pr.patterns):
             self.report({"ERROR"}, "No active naming pattern selected")
             return {"CANCELLED"}
 
-        pattern = prefs.patterns[active_idx]
+        pattern = pr.patterns[active_idx]
         processor = NamingProcessor(pattern)
 
         # Generate test names
@@ -310,20 +311,20 @@ class MODRENAMER_PT_MainPanel(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
-        prefs = get_preferences()
+        pr = prefs()
 
         # Pattern selector
         row = layout.row()
         row.label(text="Pattern:")
 
-        if prefs.patterns:
+        if pr.patterns:
             row = layout.row()
             row.template_list(
                 "UI_UL_list",
                 "pattern_list",
-                prefs,
+                pr,
                 "patterns",
-                prefs,
+                pr,
                 "active_pattern_index",
             )
 
@@ -334,8 +335,8 @@ class MODRENAMER_PT_MainPanel(bpy.types.Panel):
             col.operator("modrenamer.test_pattern", icon="OUTLINER_OB_LIGHT", text="")
 
             # Show active pattern details
-            if prefs.active_pattern_index < len(prefs.patterns):
-                pattern = prefs.patterns[prefs.active_pattern_index]
+            if pr.active_pattern_index < len(pr.patterns):
+                pattern = pr.patterns[pr.active_pattern_index]
 
                 # Object type
                 row = layout.row()
@@ -711,11 +712,11 @@ class MODRENAMER_OT_AddPattern(bpy.types.Operator):
         layout.prop(self, "pattern_type")
 
     def execute(self, context):
-        prefs = get_preferences()
-        pattern_id = f"{self.pattern_type.lower()}_{len(prefs.patterns) + 1}"
+        pr = prefs()
+        pattern_id = f"{self.pattern_type.lower()}_{len(pr.patterns) + 1}"
 
-        pattern = prefs.add_pattern(pattern_id, self.pattern_name, self.pattern_type)
-        prefs.active_pattern_index = len(prefs.patterns) - 1
+        pattern = pr.add_pattern(pattern_id, self.pattern_name, self.pattern_type)
+        pr.active_pattern_index = len(pr.patterns) - 1
 
         return {"FINISHED"}
 
@@ -727,15 +728,15 @@ class MODRENAMER_OT_RemovePattern(bpy.types.Operator):
     bl_label = "Remove Pattern"
 
     def execute(self, context):
-        prefs = get_preferences()
+        pr = prefs()
 
-        if not prefs.patterns:
+        if not pr.patterns:
             return {"CANCELLED"}
 
-        prefs.remove_pattern(prefs.active_pattern_index)
+        pr.remove_pattern(pr.active_pattern_index)
 
-        if prefs.active_pattern_index >= len(prefs.patterns):
-            prefs.active_pattern_index = max(0, len(prefs.patterns) - 1)
+        if pr.active_pattern_index >= len(pr.patterns):
+            pr.active_pattern_index = max(0, len(pr.patterns) - 1)
 
         return {"FINISHED"}
 
@@ -750,14 +751,14 @@ class MODRENAMER_OT_ToggleEditMode(bpy.types.Operator):
     bl_label = "Toggle Edit Mode"
 
     def execute(self, context):
-        prefs = get_preferences()
-        active_idx = prefs.active_pattern_index
+        pr = prefs()
+        active_idx = pr.active_pattern_index
 
-        if active_idx >= len(prefs.patterns):
+        if active_idx >= len(pr.patterns):
             self.report({"ERROR"}, "No active naming pattern selected")
             return {"CANCELLED"}
 
-        pattern = prefs.patterns[active_idx]
+        pattern = pr.patterns[active_idx]
         pattern.edit_mode = not pattern.edit_mode
 
         return {"FINISHED"}
@@ -784,14 +785,14 @@ class MODRENAMER_OT_AddElement(bpy.types.Operator):
         layout.prop(self, "display_name")
 
     def execute(self, context):
-        prefs = get_preferences()
-        active_idx = prefs.active_pattern_index
+        pr = prefs()
+        active_idx = pr.active_pattern_index
 
-        if active_idx >= len(prefs.patterns):
+        if active_idx >= len(pr.patterns):
             self.report({"ERROR"}, "No active naming pattern selected")
             return {"CANCELLED"}
 
-        pattern = prefs.patterns[active_idx]
+        pattern = pr.patterns[active_idx]
 
         # Generate a unique ID
         element_id = f"{self.element_type}_{len(pattern.elements) + 1}"
@@ -812,14 +813,14 @@ class MODRENAMER_OT_RemoveElement(bpy.types.Operator):
     bl_label = "Remove Element"
 
     def execute(self, context):
-        prefs = get_preferences()
-        active_idx = prefs.active_pattern_index
+        pr = prefs()
+        active_idx = pr.active_pattern_index
 
-        if active_idx >= len(prefs.patterns):
+        if active_idx >= len(pr.patterns):
             self.report({"ERROR"}, "No active naming pattern selected")
             return {"CANCELLED"}
 
-        pattern = prefs.patterns[active_idx]
+        pattern = pr.patterns[active_idx]
 
         if pattern.active_element_index >= len(pattern.elements):
             self.report({"ERROR"}, "No active element selected")
@@ -842,13 +843,13 @@ class MODRENAMER_OT_MoveElementUp(bpy.types.Operator):
     bl_label = "Move Element Up"
 
     def execute(self, context):
-        prefs = get_preferences()
-        active_idx = prefs.active_pattern_index
+        pr = prefs()
+        active_idx = pr.active_pattern_index
 
-        if active_idx >= len(prefs.patterns):
+        if active_idx >= len(pr.patterns):
             return {"CANCELLED"}
 
-        pattern = prefs.patterns[active_idx]
+        pattern = pr.patterns[active_idx]
 
         if pattern.active_element_index <= 0 or pattern.active_element_index >= len(
             pattern.elements
@@ -867,13 +868,13 @@ class MODRENAMER_OT_MoveElementDown(bpy.types.Operator):
     bl_label = "Move Element Down"
 
     def execute(self, context):
-        prefs = get_preferences()
-        active_idx = prefs.active_pattern_index
+        pr = prefs()
+        active_idx = pr.active_pattern_index
 
-        if active_idx >= len(prefs.patterns):
+        if active_idx >= len(pr.patterns):
             return {"CANCELLED"}
 
-        pattern = prefs.patterns[active_idx]
+        pattern = pr.patterns[active_idx]
 
         if (
             pattern.active_element_index < 0
@@ -907,13 +908,13 @@ class MODRENAMER_OT_AddTextItem(bpy.types.Operator):
         layout.prop(self, "item_name")
 
     def execute(self, context):
-        prefs = get_preferences()
-        active_idx = prefs.active_pattern_index
+        pr = prefs()
+        active_idx = pr.active_pattern_index
 
-        if active_idx >= len(prefs.patterns):
+        if active_idx >= len(pr.patterns):
             return {"CANCELLED"}
 
-        pattern = prefs.patterns[active_idx]
+        pattern = pr.patterns[active_idx]
 
         if self.element_index >= len(pattern.elements):
             return {"CANCELLED"}
@@ -939,13 +940,13 @@ class MODRENAMER_OT_RemoveTextItem(bpy.types.Operator):
     element_index: IntProperty(name="Element Index", default=0)
 
     def execute(self, context):
-        prefs = get_preferences()
-        active_idx = prefs.active_pattern_index
+        pr = prefs()
+        active_idx = pr.active_pattern_index
 
-        if active_idx >= len(prefs.patterns):
+        if active_idx >= len(pr.patterns):
             return {"CANCELLED"}
 
-        pattern = prefs.patterns[active_idx]
+        pattern = pr.patterns[active_idx]
 
         if self.element_index >= len(pattern.elements):
             return {"CANCELLED"}
@@ -974,13 +975,13 @@ class MODRENAMER_OT_MoveTextItemUp(bpy.types.Operator):
     element_index: IntProperty(name="Element Index", default=0)
 
     def execute(self, context):
-        prefs = get_preferences()
-        active_idx = prefs.active_pattern_index
+        pr = prefs()
+        active_idx = pr.active_pattern_index
 
-        if active_idx >= len(prefs.patterns):
+        if active_idx >= len(pr.patterns):
             return {"CANCELLED"}
 
-        pattern = prefs.patterns[active_idx]
+        pattern = pr.patterns[active_idx]
 
         if self.element_index >= len(pattern.elements):
             return {"CANCELLED"}
@@ -1008,13 +1009,13 @@ class MODRENAMER_OT_MoveTextItemDown(bpy.types.Operator):
     element_index: IntProperty(name="Element Index", default=0)
 
     def execute(self, context):
-        prefs = get_preferences()
-        active_idx = prefs.active_pattern_index
+        pr = prefs()
+        active_idx = pr.active_pattern_index
 
-        if active_idx >= len(prefs.patterns):
+        if active_idx >= len(pr.patterns):
             return {"CANCELLED"}
 
-        pattern = prefs.patterns[active_idx]
+        pattern = pr.patterns[active_idx]
 
         if self.element_index >= len(pattern.elements):
             return {"CANCELLED"}
@@ -1041,41 +1042,41 @@ class MODRENAMER_OT_CreateDefaultPatterns(bpy.types.Operator):
     bl_label = "Create Default Patterns"
 
     def execute(self, context):
-        prefs = get_preferences()
-        prefs.create_default_patterns()
+        pr = prefs()
+        pr.create_default_patterns()
         self.report({"INFO"}, "Default patterns created")
         return {"FINISHED"}
 
 
 # Registration
-classes = [
-    MODRENAMER_OT_AddRemoveNameElement,
-    MODRENAMER_OT_BulkRename,
-    MODRENAMER_OT_TestPattern,
-    MODRENAMER_OT_CreatePatternFromSelection,
-    MODRENAMER_UL_ElementsList,
-    MODRENAMER_UL_TextItemsList,
-    MODRENAMER_PT_MainPanel,
-    MODRENAMER_OT_AddPattern,
-    MODRENAMER_OT_RemovePattern,
-    MODRENAMER_OT_CreateDefaultPatterns,
-    MODRENAMER_OT_ToggleEditMode,
-    MODRENAMER_OT_AddElement,
-    MODRENAMER_OT_RemoveElement,
-    MODRENAMER_OT_MoveElementUp,
-    MODRENAMER_OT_MoveElementDown,
-    MODRENAMER_OT_AddTextItem,
-    MODRENAMER_OT_RemoveTextItem,
-    MODRENAMER_OT_MoveTextItemUp,
-    MODRENAMER_OT_MoveTextItemDown,
-]
+# classes = [
+#     MODRENAMER_OT_AddRemoveNameElement,
+#     MODRENAMER_OT_BulkRename,
+#     MODRENAMER_OT_TestPattern,
+#     MODRENAMER_OT_CreatePatternFromSelection,
+#     MODRENAMER_UL_ElementsList,
+#     MODRENAMER_UL_TextItemsList,
+#     MODRENAMER_PT_MainPanel,
+#     MODRENAMER_OT_AddPattern,
+#     MODRENAMER_OT_RemovePattern,
+#     MODRENAMER_OT_CreateDefaultPatterns,
+#     MODRENAMER_OT_ToggleEditMode,
+#     MODRENAMER_OT_AddElement,
+#     MODRENAMER_OT_RemoveElement,
+#     MODRENAMER_OT_MoveElementUp,
+#     MODRENAMER_OT_MoveElementDown,
+#     MODRENAMER_OT_AddTextItem,
+#     MODRENAMER_OT_RemoveTextItem,
+#     MODRENAMER_OT_MoveTextItemUp,
+#     MODRENAMER_OT_MoveTextItemDown,
+# ]
 
 
-def register():
-    for cls in classes:
-        bpy.utils.register_class(cls)
+# def register():
+#     for cls in classes:
+#         bpy.utils.register_class(cls)
 
 
-def unregister():
-    for cls in reversed(classes):
-        bpy.utils.unregister_class(cls)
+# def unregister():
+#     for cls in reversed(classes):
+#         bpy.utils.unregister_class(cls)
