@@ -19,6 +19,10 @@ import re
 from collections import defaultdict
 from typing import List, Dict, Set, Pattern
 
+# from .utils.logging import get_logger
+
+# log = get_logger(__name__)
+
 # ======================================================
 # グローバル設定
 # ======================================================
@@ -134,8 +138,17 @@ def init_addon(
             importlib.import_module(module_name)
 
     # 依存関係解決
-    sorted_modules = _sort_modules(module_names)
-    MODULE_NAMES[:] = sorted_modules
+    # sorted_modules = _sort_modules(module_names)
+    # MODULE_NAMES[:] = sorted_modules
+
+    # 上手くいかないので強制的に登録
+    MODULE_NAMES[:] = [
+        "modular-renamer.addon",
+        "modular-renamer.utils.logging",
+        "modular-renamer.core",
+        "modular-renamer.ui",
+        "modular-renamer.preferences",
+    ]
 
     if DBG_INIT:
         print("\n=== 最終モジュールロード順序 ===")
@@ -180,7 +193,8 @@ def _analyze_dependencies(module_names: List[str]) -> Dict[str, Set[str]]:
 
                     # ここを逆にする:
                     if dep_mod in module_names:
-                        graph[dep_mod].add(mod_name)
+                        # graph[dep_mod].add(mod_name)
+                        graph[mod_name].add(dep_mod)
 
         # 明示的依存関係
         if hasattr(mod, "DEPENDS_ON"):
@@ -188,7 +202,8 @@ def _analyze_dependencies(module_names: List[str]) -> Dict[str, Set[str]]:
                 dep_full = f"{ADDON_ID}.{dep}"
                 if dep_full in module_names:
                     # ここも逆に:
-                    graph[dep_full].add(mod_name)
+                    # graph[dep_full].add(mod_name)
+                    graph[mod_name].add(dep_full)
 
     return graph
 
