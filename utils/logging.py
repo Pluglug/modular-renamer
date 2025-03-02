@@ -1,4 +1,5 @@
 import logging
+import logging.handlers
 import os
 import sys
 import traceback
@@ -62,6 +63,7 @@ class AddonLogger:
         self.file_handler = None
 
         self.logger.addHandler(self.memory_handler)
+        self._current_rotation_settings = {}
 
     def configure(self, prefs):
         """設定を更新"""
@@ -83,22 +85,51 @@ class AddonLogger:
 
         # ファイルハンドラ
         if prefs.log_to_file:
+            current_settings = {
+                "path": prefs.log_file_path,
+                "rotation_type": prefs.log_rotation_type,
+                "max_size": prefs.log_max_size,
+                "time_interval": prefs.log_time_interval,
+                "backup_count": prefs.log_backup_count,
+            }
+
             if (
-                not self.file_handler
-                or self.file_handler.baseFilename != prefs.log_file_path
+                self.file_handler is None
+                or current_settings != self._current_rotation_settings
             ):
+
                 if self.file_handler:
                     self.logger.removeHandler(self.file_handler)
-                self.file_handler = logging.FileHandler(prefs.log_file_path)
-                self.file_handler.setFormatter(
-                    logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
-                )
-                self.logger.addHandler(self.file_handler)
-        elif self.file_handler:
-            self.logger.removeHandler(self.file_handler)
-            self.file_handler = None
+                    self.file_handler.close()
 
-        self.memory_handler.capacity = prefs.memory_capacity
+                handler_class = logging.FileHandler
+                kwargs = {}
+
+                if prefs.log_rotation_type == "SIZE":
+                    handler_class = logging.handlers.RotatingFileHandler
+                    kwargs["maxBytes"] = prefs.log_max_size * 1024 * 1024
+                    kwargs["backupCount"] = prefs.log_backup_count
+                elif prefs.log_rotation_type == "TIME":
+                    handler_class = logging.handlers.TimedRotatingFileHandler
+                    kwargs["when"] = prefs.log_time_interval.lower()
+                    kwargs["interval"] = 1
+                    kwargs["backupCount"] = prefs.log_backup_count
+
+                try:
+                    self.file_handler = handler_class(
+                        filename=prefs.log_file_path,
+                        encoding="utf-8",
+                        delay=True,  # 最初の書き込みまでファイルを開かない
+                        **kwargs,
+                    )
+                    self.file_handler.setFormatter(
+                        logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
+                    )
+                    self.logger.addHandler(self.file_handler)
+                    self._current_rotation_settings = current_settings
+                except PermissionError as e:
+                    self.logger.error(f"Failed to create log file: {str(e)}")
+                    prefs.log_to_file = False
 
     def capture_exception(self, additional_info=None):
         """例外をキャプチャしてログに記録"""
@@ -186,6 +217,42 @@ class AddonLoggerPreferencesMixin:
         name="Memory Capacity", default=1000, min=100, max=10000
     )
 
+    log_rotation_type: EnumProperty(
+        items=[
+            ("NONE", "None", "ログローテーションなし"),
+            ("SIZE", "サイズ基準", "指定サイズに達したらログをローテート"),
+            ("TIME", "時間基準", "指定間隔でログをローテート"),
+        ],
+        name="ログローテーション",
+        default="NONE",
+    )
+
+    log_max_size: IntProperty(
+        name="最大ログサイズ (MB)",
+        default=10,
+        min=1,
+        max=1024,
+        description="ローテートをトリガーするファイルサイズ",
+    )
+
+    log_time_interval: EnumProperty(
+        items=[
+            ("D", "毎日", "日単位でローテート"),
+            ("H", "毎時", "時間単位でローテート"),
+            ("MIDNIGHT", "日替わり", "日付変更時にローテート"),
+        ],
+        name="ローテーション間隔",
+        default="D",
+    )
+
+    log_backup_count: IntProperty(
+        name="保持バックアップ数",
+        default=5,
+        min=0,
+        max=100,
+        description="保持する古いログファイルの数（0で無制限）",
+    )
+
     def draw_logger_preferences(self, context):
         layout = self.layout
         box = layout.box()
@@ -202,6 +269,31 @@ class AddonLoggerPreferencesMixin:
                 box.prop(self, "log_file_path")
             box.prop(self, "memory_capacity")
 
+        if self.log_to_file:
+            box.prop(self, "log_rotation_type")
+
+            if self.log_rotation_type != "NONE":
+                sub = box.box()
+                sub.label(text="ローテーション設定", icon="SETTINGS")
+
+                if self.log_rotation_type == "SIZE":
+                    sub.prop(self, "log_max_size")
+                elif self.log_rotation_type == "TIME":
+                    sub.prop(self, "log_time_interval")
+
+                sub.prop(self, "log_backup_count")
+
+                # 現在のログファイル情報を表示
+                if os.path.exists(self.log_file_path):
+                    stats = os.stat(self.log_file_path)
+                    size_mb = stats.st_size / (1024 * 1024)
+                    mtime = datetime.fromtimestamp(stats.st_mtime).strftime(
+                        "%Y-%m-%d %H:%M:%S"
+                    )
+                    sub.label(
+                        text=f"現在のログ: {size_mb:.1f}MB ({mtime})", icon="FILE_TEXT"
+                    )
+
 
 class LOG_OT_ExportLogs(Operator):
     """ログをエクスポートするオペレータ"""
@@ -210,6 +302,29 @@ class LOG_OT_ExportLogs(Operator):
     bl_label = "Export Logs"
 
     filepath: StringProperty(subtype="FILE_PATH")
+
+    def execute(self, context):
+        logger = context.preferences.addons[__name__].preferences.logger
+        try:
+            # 現在のログファイルを強制的にローテート
+            if logger.file_handler:
+                if hasattr(logger.file_handler, "doRollover"):
+                    logger.file_handler.doRollover()
+                    logger.info("--- Manual log rotation triggered ---")
+
+            # 最新のログファイルをエクスポート
+            latest_log = logger.file_handler.baseFilename if logger.file_handler else ""
+            if os.path.exists(latest_log):
+                import shutil
+
+                shutil.copy2(latest_log, self.filepath)
+                self.report({"INFO"}, "Logs exported successfully")
+                return {"FINISHED"}
+
+            self.report({"ERROR"}, "Failed to export logs")
+            return {"CANCELLED"}
+        except Exception as e:
+            logger.capture_exception()
 
     def execute(self, context):
         logger = context.preferences.addons[__name__].preferences.logger
