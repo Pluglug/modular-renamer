@@ -260,10 +260,7 @@ class ModuleLoggerSettings(PropertyGroup):
     )
 
     enabled: BoolProperty(
-        name="Enable",
-        description="このモジュールの個別設定を有効にする",
-        default=True,
-        update=lambda self, context: self.id_data.update_logger_settings(context),
+        name="Enable", description="このモジュールの個別設定を有効にする", default=True
     )
 
     log_level: EnumProperty(
@@ -277,7 +274,6 @@ class ModuleLoggerSettings(PropertyGroup):
         name="Log Level",
         description="このモジュールのログレベル",
         default="DEBUG",
-        update=lambda self, context: self.id_data.update_logger_settings(context),
     )
 
 
@@ -356,13 +352,13 @@ class AddonLoggerPreferencesMixin:
         if not self.log_enable:
             return
 
-        row = box.row()
-        row.prop(self, "log_level", text="Default Level")
+        # row = box.row()
+        # row.prop(self, "log_level", text="Default Level")
 
         row = box.row()
         row.prop(self, "log_to_console")
-        if self.log_to_console:
-            row.prop(self, "use_colors")
+        # if self.log_to_console:
+        #     row.prop(self, "use_colors")
 
         row = box.row()
         row.prop(self, "log_to_file")
@@ -373,6 +369,8 @@ class AddonLoggerPreferencesMixin:
         row = box.row()
         row.prop(self, "memory_capacity")
 
+        row.separator()
+
         # モジュール設定セクション（読み取り専用のリスト）
         if len(self.modules) > 0:
             box.label(text="Module Settings")
@@ -382,12 +380,16 @@ class AddonLoggerPreferencesMixin:
             )
 
             # アクティブなモジュール設定を表示
-            if self.active_module_index < len(self.modules):
-                module = self.modules[self.active_module_index]
-                row = box.row()
-                row.prop(module, "enabled")
-                if module.enabled:
-                    row.prop(module, "log_level")
+            # if self.active_module_index < len(self.modules):
+            #     module = self.modules[self.active_module_index]
+            #     row = box.row()
+            #     row.prop(module, "enabled")
+            #     if module.enabled:
+            #         row.prop(module, "log_level")
+
+            # モジュール設定を変更したらアップデートボタンを表示
+            row = box.row()
+            row.operator("logger.update_settings", text="Apply Module Settings")
 
         # ログ操作ボタン
         row = box.row()
@@ -455,6 +457,27 @@ class LOGGER_UL_modules(bpy.types.UIList):
             row.prop(item, "log_level", text="")
 
 
+class LOGGER_OT_update_settings(bpy.types.Operator):
+    """ロガー設定を更新"""
+
+    bl_idname = "logger.update_settings"
+    bl_label = "Update Logger Settings"
+    bl_options = {"REGISTER", "INTERNAL"}
+
+    def execute(self, context):
+        # アドオン設定を取得
+        from ..addon import prefs
+
+        pr = prefs()
+        if hasattr(pr, "update_logger_settings"):
+            pr.update_logger_settings(context)
+            self.report({"INFO"}, "Logger settings updated")
+            return {"FINISHED"}
+
+        self.report({"ERROR"}, "Failed to update logger settings")
+        return {"CANCELLED"}
+
+
 class LOGGER_OT_export_logs(bpy.types.Operator):
     """ログをエクスポートするオペレータ"""
 
@@ -511,14 +534,13 @@ def get_logger(module_name):
 
 def register():
     from ..addon import prefs
+
     pr = prefs()
 
-    # ロガー設定を登録
     mods = LoggerRegistry.get_all_loggers()
     for module_name, logger in mods.items():
         pr.register_module(module_name, "DEBUG")
 
-    # ロガー設定を適用
     pr.update_logger_settings()
 
 
