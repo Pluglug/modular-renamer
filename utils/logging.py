@@ -1,5 +1,4 @@
 import logging
-import logging.handlers
 import os
 import sys
 import traceback
@@ -8,8 +7,15 @@ from collections import deque
 from enum import Enum
 
 import bpy
-from bpy.props import BoolProperty, EnumProperty, StringProperty, IntProperty
-from bpy.types import Operator, AddonPreferences
+from bpy.props import (
+    BoolProperty,
+    EnumProperty,
+    StringProperty,
+    IntProperty,
+    CollectionProperty,
+    PointerProperty,
+)
+from bpy.types import Operator, AddonPreferences, PropertyGroup
 
 # ANSIカラーコード
 COLORS = {
@@ -49,12 +55,57 @@ class MemoryHandler(logging.Handler):
         self.buffer.clear()
 
 
+class LoggerRegistry:
+    """ロガーレジストリ - すべてのロガーインスタンスを管理"""
+
+    _loggers = {}
+    _config = None
+
+    @classmethod
+    def get_logger(cls, module_name):
+        """モジュール名でロガーを取得（なければ作成）"""
+        if module_name not in cls._loggers:
+            logger = AddonLogger(module_name)
+            cls._loggers[module_name] = logger
+            # 既存の設定があれば適用
+            if cls._config:
+                logger.configure(cls._config, module_name)
+        return cls._loggers[module_name]
+
+    @classmethod
+    def configure_all(cls, config):
+        """すべてのロガーに設定を適用"""
+        cls._config = config
+        for module_name, logger in cls._loggers.items():
+            logger.configure(config, module_name)
+
+    @classmethod
+    def get_all_loggers(cls):
+        """登録されているすべてのロガーを取得"""
+        return cls._loggers
+
+    @classmethod
+    def export_all_logs(cls, file_path):
+        """すべてのロガーのログをエクスポート"""
+        try:
+            with open(file_path, "w", encoding="utf-8") as f:
+                for module_name, logger in sorted(cls._loggers.items()):
+                    f.write(f"\n=== Module: {module_name} ===\n")
+                    for record in logger.memory_handler.get_records():
+                        f.write(f"[{record.levelname}] {record.msg}\n")
+            return True
+        except Exception as e:
+            # エラーを報告するためのロガーがない可能性があるので、標準エラー出力を使用
+            print(f"Log export failed: {str(e)}", file=sys.stderr)
+            return False
+
+
 class AddonLogger:
     """アドオン用ロガークラス"""
 
-    def __init__(self, addon_name):
-        self.addon_name = addon_name
-        self.logger = logging.getLogger(addon_name)
+    def __init__(self, module_name):
+        self.module_name = module_name
+        self.logger = logging.getLogger(module_name)
         self.logger.setLevel(logging.INFO)
         self.logger.propagate = False
 
@@ -63,73 +114,85 @@ class AddonLogger:
         self.file_handler = None
 
         self.logger.addHandler(self.memory_handler)
-        self._current_rotation_settings = {}
 
-    def configure(self, prefs):
+    def configure(self, config, module_name=None):
         """設定を更新"""
-        level = getattr(logging, prefs.log_level)
-        self.logger.setLevel(level)
+        # 使用するモジュール名を決定
+        module_name = module_name or self.module_name
+
+        # デフォルトログレベルを取得
+        default_level = getattr(logging, config.log_level)
+
+        # モジュール別の設定があれば、そのログレベルを使用
+        module_level = default_level
+        for module_config in config.modules:
+            if module_config.name == module_name and module_config.enabled:
+                module_level = getattr(logging, module_config.log_level)
+                break
+
+        # ロガーのレベルを設定
+        self.logger.setLevel(module_level)
 
         # コンソールハンドラ
-        if prefs.log_to_console and not self.console_handler:
+        if config.log_to_console and not self.console_handler:
             self.console_handler = logging.StreamHandler()
             self.console_handler.setFormatter(
-                ColoredFormatter("%(levelname)s: %(message)s")
-                if prefs.use_colors
-                else logging.Formatter("%(levelname)s: %(message)s")
+                ColoredFormatter("%(name)s - %(levelname)s: %(message)s")
+                if config.use_colors
+                else logging.Formatter("%(name)s - %(levelname)s: %(message)s")
             )
             self.logger.addHandler(self.console_handler)
-        elif not prefs.log_to_console and self.console_handler:
+        elif not config.log_to_console and self.console_handler:
             self.logger.removeHandler(self.console_handler)
             self.console_handler = None
 
         # ファイルハンドラ
-        if prefs.log_to_file:
-            current_settings = {
-                "path": prefs.log_file_path,
-                "rotation_type": prefs.log_rotation_type,
-                "max_size": prefs.log_max_size,
-                "time_interval": prefs.log_time_interval,
-                "backup_count": prefs.log_backup_count,
-            }
+        if config.log_to_file and config.log_file_path:
+            # ディレクトリが存在しない場合は作成
+            log_dir = os.path.dirname(config.log_file_path)
+            if log_dir and not os.path.exists(log_dir):
+                os.makedirs(log_dir, exist_ok=True)
 
             if (
-                self.file_handler is None
-                or current_settings != self._current_rotation_settings
+                not self.file_handler
+                or self.file_handler.baseFilename != config.log_file_path
             ):
-
                 if self.file_handler:
                     self.logger.removeHandler(self.file_handler)
-                    self.file_handler.close()
-
-                handler_class = logging.FileHandler
-                kwargs = {}
-
-                if prefs.log_rotation_type == "SIZE":
-                    handler_class = logging.handlers.RotatingFileHandler
-                    kwargs["maxBytes"] = prefs.log_max_size * 1024 * 1024
-                    kwargs["backupCount"] = prefs.log_backup_count
-                elif prefs.log_rotation_type == "TIME":
-                    handler_class = logging.handlers.TimedRotatingFileHandler
-                    kwargs["when"] = prefs.log_time_interval.lower()
-                    kwargs["interval"] = 1
-                    kwargs["backupCount"] = prefs.log_backup_count
-
-                try:
-                    self.file_handler = handler_class(
-                        filename=prefs.log_file_path,
-                        encoding="utf-8",
-                        delay=True,  # 最初の書き込みまでファイルを開かない
-                        **kwargs,
+                self.file_handler = logging.FileHandler(
+                    config.log_file_path, encoding="utf-8"
+                )
+                self.file_handler.setFormatter(
+                    logging.Formatter(
+                        "%(asctime)s [%(name)s] [%(levelname)s] %(message)s"
                     )
-                    self.file_handler.setFormatter(
-                        logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
-                    )
-                    self.logger.addHandler(self.file_handler)
-                    self._current_rotation_settings = current_settings
-                except PermissionError as e:
-                    self.logger.error(f"Failed to create log file: {str(e)}")
-                    prefs.log_to_file = False
+                )
+                self.logger.addHandler(self.file_handler)
+        elif not config.log_to_file and self.file_handler:
+            self.logger.removeHandler(self.file_handler)
+            self.file_handler = None
+
+        self.memory_handler.capacity = config.memory_capacity
+
+    def debug(self, message):
+        """デバッグレベルのログを記録"""
+        self.logger.debug(message)
+
+    def info(self, message):
+        """情報レベルのログを記録"""
+        self.logger.info(message)
+
+    def warning(self, message):
+        """警告レベルのログを記録"""
+        self.logger.warning(message)
+
+    def error(self, message):
+        """エラーレベルのログを記録"""
+        self.logger.error(message)
+
+    def critical(self, message):
+        """致命的エラーのログを記録"""
+        self.logger.critical(message)
 
     def capture_exception(self, additional_info=None):
         """例外をキャプチャしてログに記録"""
@@ -179,179 +242,339 @@ class AddonLogger:
     def export_logs(self, file_path):
         """ログをファイルにエクスポート"""
         try:
-            with open(file_path, "w") as f:
+            with open(file_path, "w", encoding="utf-8") as f:
                 for record in self.memory_handler.get_records():
-                    f.write(f"{record.levelname}: {record.msg}\n")
+                    f.write(f"[{record.levelname}] {record.msg}\n")
             return True
         except Exception as e:
             self.logger.error(f"Log export failed: {str(e)}")
             return False
 
 
-class AddonLoggerPreferencesMixin:
-    """アドオンプリファレンス向けMixinクラス"""
+# シンプルなモジュールロガー設定
+class ModuleLoggerSettings(PropertyGroup):
+    """モジュール別ロガー設定"""
 
-    log_enable: BoolProperty(name="Enable Logging", default=True)
+    name: StringProperty(
+        name="Module Name", description="ロギング設定を適用するモジュール名"
+    )
+
+    enabled: BoolProperty(
+        name="Enable",
+        description="このモジュールの個別設定を有効にする",
+        default=True,
+        update=lambda self, context: self.id_data.update_logger_settings(context),
+    )
 
     log_level: EnumProperty(
         items=[
-            ("DEBUG", "Debug", ""),
-            ("INFO", "Info", ""),
-            ("WARNING", "Warning", ""),
-            ("ERROR", "Error", ""),
-            ("CRITICAL", "Critical", ""),
+            ("DEBUG", "Debug", "詳細なデバッグ情報"),
+            ("INFO", "Info", "一般的な情報"),
+            ("WARNING", "Warning", "警告のみ"),
+            ("ERROR", "Error", "エラーのみ"),
+            ("CRITICAL", "Critical", "致命的なエラーのみ"),
         ],
         name="Log Level",
+        description="このモジュールのログレベル",
         default="INFO",
+        update=lambda self, context: self.id_data.update_logger_settings(context),
     )
 
-    log_to_console: BoolProperty(name="Console Logging", default=True)
 
-    use_colors: BoolProperty(name="Use Colors", default=True)
+class AddonLoggerPreferencesMixin:
+    """アドオンプリファレンス向けMixinクラス"""
 
-    log_to_file: BoolProperty(name="File Logging", default=False)
+    log_enable: BoolProperty(
+        name="Enable Logging",
+        description="ロギングシステムを有効化",
+        default=True,
+        update=lambda self, context: self.update_logger_settings(context),
+    )
 
-    log_file_path: StringProperty(name="Log File", subtype="FILE_PATH")
+    log_level: EnumProperty(
+        items=[
+            ("DEBUG", "Debug", "詳細なデバッグ情報"),
+            ("INFO", "Info", "一般的な情報"),
+            ("WARNING", "Warning", "警告のみ"),
+            ("ERROR", "Error", "エラーのみ"),
+            ("CRITICAL", "Critical", "致命的なエラーのみ"),
+        ],
+        name="Log Level",
+        description="デフォルトのログレベル",
+        default="INFO",
+        update=lambda self, context: self.update_logger_settings(context),
+    )
+
+    log_to_console: BoolProperty(
+        name="Console Logging",
+        description="コンソールにログを出力",
+        default=True,
+        update=lambda self, context: self.update_logger_settings(context),
+    )
+
+    use_colors: BoolProperty(
+        name="Use Colors",
+        description="コンソール出力に色を使用",
+        default=True,
+        update=lambda self, context: self.update_logger_settings(context),
+    )
+
+    log_to_file: BoolProperty(
+        name="File Logging",
+        description="ファイルにログを出力",
+        default=False,
+        update=lambda self, context: self.update_logger_settings(context),
+    )
+
+    log_file_path: StringProperty(
+        name="Log File",
+        description="ログファイルのパス",
+        subtype="FILE_PATH",
+        update=lambda self, context: self.update_logger_settings(context),
+    )
 
     memory_capacity: IntProperty(
-        name="Memory Capacity", default=1000, min=100, max=10000
+        name="Memory Capacity",
+        description="メモリに保持するログの最大数",
+        default=1000,
+        min=100,
+        max=10000,
+        update=lambda self, context: self.update_logger_settings(context),
     )
 
-    log_rotation_type: EnumProperty(
-        items=[
-            ("NONE", "None", "ログローテーションなし"),
-            ("SIZE", "サイズ基準", "指定サイズに達したらログをローテート"),
-            ("TIME", "時間基準", "指定間隔でログをローテート"),
-        ],
-        name="ログローテーション",
-        default="NONE",
-    )
+    # モジュール設定のコレクション
+    modules: CollectionProperty(type=ModuleLoggerSettings)
+    active_module_index: IntProperty(default=0)
 
-    log_max_size: IntProperty(
-        name="最大ログサイズ (MB)",
-        default=10,
-        min=1,
-        max=1024,
-        description="ローテートをトリガーするファイルサイズ",
-    )
-
-    log_time_interval: EnumProperty(
-        items=[
-            ("D", "毎日", "日単位でローテート"),
-            ("H", "毎時", "時間単位でローテート"),
-            ("MIDNIGHT", "日替わり", "日付変更時にローテート"),
-        ],
-        name="ローテーション間隔",
-        default="D",
-    )
-
-    log_backup_count: IntProperty(
-        name="保持バックアップ数",
-        default=5,
-        min=0,
-        max=100,
-        description="保持する古いログファイルの数（0で無制限）",
-    )
-
-    def draw_logger_preferences(self, context):
-        layout = self.layout
+    def draw_logger_preferences(self, layout):
+        """ロガー設定UI描画"""
         box = layout.box()
         box.label(text="Logging Settings", icon="CONSOLE")
-        box.prop(self, "log_enable")
+        row = box.row()
+        row.prop(self, "log_enable")
 
-        if self.log_enable:
-            box.prop(self, "log_level")
-            box.prop(self, "log_to_console")
-            if self.log_to_console:
-                box.prop(self, "use_colors")
-            box.prop(self, "log_to_file")
-            if self.log_to_file:
-                box.prop(self, "log_file_path")
-            box.prop(self, "memory_capacity")
+        if not self.log_enable:
+            return
 
+        row = box.row()
+        row.prop(self, "log_level", text="Default Level")
+
+        row = box.row()
+        row.prop(self, "log_to_console")
+        if self.log_to_console:
+            row.prop(self, "use_colors")
+
+        row = box.row()
+        row.prop(self, "log_to_file")
         if self.log_to_file:
-            box.prop(self, "log_rotation_type")
+            row = box.row()
+            row.prop(self, "log_file_path")
 
-            if self.log_rotation_type != "NONE":
-                sub = box.box()
-                sub.label(text="ローテーション設定", icon="SETTINGS")
+        row = box.row()
+        row.prop(self, "memory_capacity")
 
-                if self.log_rotation_type == "SIZE":
-                    sub.prop(self, "log_max_size")
-                elif self.log_rotation_type == "TIME":
-                    sub.prop(self, "log_time_interval")
+        # モジュール設定セクション（読み取り専用のリスト）
+        if len(self.modules) > 0:
+            box.label(text="Module Settings")
+            row = box.row()
+            row.template_list(
+                "LOGGER_UL_modules", "", self, "modules", self, "active_module_index"
+            )
 
-                sub.prop(self, "log_backup_count")
+            # アクティブなモジュール設定を表示
+            if self.active_module_index < len(self.modules):
+                module = self.modules[self.active_module_index]
+                row = box.row()
+                row.prop(module, "enabled")
+                if module.enabled:
+                    row.prop(module, "log_level")
 
-                # 現在のログファイル情報を表示
-                if os.path.exists(self.log_file_path):
-                    stats = os.stat(self.log_file_path)
-                    size_mb = stats.st_size / (1024 * 1024)
-                    mtime = datetime.fromtimestamp(stats.st_mtime).strftime(
-                        "%Y-%m-%d %H:%M:%S"
-                    )
-                    sub.label(
-                        text=f"現在のログ: {size_mb:.1f}MB ({mtime})", icon="FILE_TEXT"
-                    )
+        # ログ操作ボタン
+        row = box.row()
+        row.operator("logger.export_logs", text="Export Logs")
+        row.operator("logger.clear_logs", text="Clear Logs")
+
+    def update_logger_settings(self, context=None):
+        """ロガー設定を更新"""
+        if not hasattr(self, "log_enable") or not self.log_enable:
+            return
+
+        # 自動でログファイルパスを設定
+        if self.log_to_file and not self.log_file_path:
+            addon_name = self.bl_idname.split(".")[0]
+            log_dir = os.path.join(
+                bpy.utils.user_resource("CONFIG"), addon_name, "logs"
+            )
+            os.makedirs(log_dir, exist_ok=True)
+            today = datetime.datetime.now().strftime("%Y-%m-%d")
+            self.log_file_path = os.path.join(log_dir, f"{addon_name}_{today}.log")
+
+        # すべてのロガーに設定を適用
+        LoggerRegistry.configure_all(self)
+
+    def register_module(self, module_name, log_level="INFO"):
+        """モジュール設定を登録（既存の場合は更新）"""
+        # 既存のモジュールを探す
+        for module in self.modules:
+            if module.name == module_name:
+                module.log_level = log_level
+                return
+
+        # 新しいモジュールを追加
+        module = self.modules.add()
+        module.name = module_name
+        module.enabled = True
+        module.log_level = log_level
+
+    def register_modules(self, module_config):
+        """複数のモジュール設定を一度に登録
+
+        Args:
+            module_config: Dict[str, str] - モジュール名とログレベルのマッピング
+                例: {"my_addon.core": "DEBUG", "my_addon.ui": "INFO"}
+        """
+        for module_name, log_level in module_config.items():
+            self.register_module(module_name, log_level)
+
+    def get_logger(self, module_name):
+        """モジュール用のロガーを取得"""
+        return LoggerRegistry.get_logger(module_name)
 
 
-class LOG_OT_ExportLogs(Operator):
+class LOGGER_UL_modules(bpy.types.UIList):
+    """モジュール設定リスト表示"""
+
+    def draw_item(
+        self, context, layout, data, item, icon, active_data, active_propname
+    ):
+        if self.layout_type in {"DEFAULT", "COMPACT"}:
+            row = layout.row()
+            row.prop(item, "name", text="", emboss=False)
+            icon = "CHECKBOX_HLT" if item.enabled else "CHECKBOX_DEHLT"
+            row.prop(item, "enabled", text="", icon=icon, emboss=False)
+            row.prop(item, "log_level", text="")
+
+
+class LOGGER_OT_export_logs(bpy.types.Operator):
     """ログをエクスポートするオペレータ"""
 
-    bl_idname = "log.export_logs"
+    bl_idname = "logger.export_logs"
     bl_label = "Export Logs"
+    bl_options = {"REGISTER", "INTERNAL"}
 
     filepath: StringProperty(subtype="FILE_PATH")
 
     def execute(self, context):
-        logger = context.preferences.addons[__name__].preferences.logger
-        try:
-            # 現在のログファイルを強制的にローテート
-            if logger.file_handler:
-                if hasattr(logger.file_handler, "doRollover"):
-                    logger.file_handler.doRollover()
-                    logger.info("--- Manual log rotation triggered ---")
-
-            # 最新のログファイルをエクスポート
-            latest_log = logger.file_handler.baseFilename if logger.file_handler else ""
-            if os.path.exists(latest_log):
-                import shutil
-
-                shutil.copy2(latest_log, self.filepath)
-                self.report({"INFO"}, "Logs exported successfully")
-                return {"FINISHED"}
-
+        if LoggerRegistry.export_all_logs(self.filepath):
+            self.report({"INFO"}, f"Logs exported to {self.filepath}")
+        else:
             self.report({"ERROR"}, "Failed to export logs")
-            return {"CANCELLED"}
-        except Exception as e:
-            logger.capture_exception()
-
-    def execute(self, context):
-        logger = context.preferences.addons[__name__].preferences.logger
-        if logger.export_logs(self.filepath):
-            self.report({"INFO"}, "Logs exported successfully")
         return {"FINISHED"}
 
     def invoke(self, context, event):
+        # デフォルトパスを設定
+        addon_id = getattr(context.preferences, "active_addon", None)
+        if addon_id:
+            addon_name = addon_id.split(".")[0]
+            file_dir = os.path.join(
+                bpy.utils.user_resource("CONFIG"), addon_name, "logs"
+            )
+            os.makedirs(file_dir, exist_ok=True)
+            timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            self.filepath = os.path.join(file_dir, f"logs_{timestamp}.txt")
+
         context.window_manager.fileselect_add(self)
         return {"RUNNING_MODAL"}
 
 
-# class MyAddonPreferences(AddonPreferences, AddonLoggerPreferencesMixin):
-#     bl_idname = __name__
+class LOGGER_OT_clear_logs(bpy.types.Operator):
+    """すべてのログをクリア"""
 
-#     def draw(self, context):
-#         self.draw_logger_preferences(context)
-#         self.layout.operator(LOG_OT_ExportLogs.bl_idname)
+    bl_idname = "logger.clear_logs"
+    bl_label = "Clear Logs"
+    bl_options = {"REGISTER", "INTERNAL"}
+
+    def execute(self, context):
+        # すべてのロガーのメモリハンドラをクリア
+        for module_name, logger in LoggerRegistry.get_all_loggers().items():
+            logger.memory_handler.clear()
+
+        self.report({"INFO"}, "All logs cleared")
+        return {"FINISHED"}
+
+
+# ユーティリティ関数
+def get_logger(module_name):
+    """モジュール用のロガーを取得（ショートカット関数）"""
+    return LoggerRegistry.get_logger(module_name)
+
+
+# 登録用クラス
+# classes = (
+#     ModuleLoggerSettings,
+#     LOGGER_UL_modules,
+#     LOGGER_OT_export_logs,
+#     LOGGER_OT_clear_logs,
+# )
 
 # def register():
-#     bpy.utils.register_class(MyAddonPreferences)
-#     bpy.utils.register_class(LOG_OT_ExportLogs)
-
-#     prefs = bpy.context.preferences.addons[__name__].preferences
-#     prefs.logger = AddonLogger(__name__)
-#     prefs.logger.configure(prefs)
+#     for cls in classes:
+#         bpy.utils.register_class(cls)
 
 # def unregister():
-#     bpy.utils.unregister_class(MyAddonPreferences)
-#     bpy.utils.unregister_class(LOG_OT_ExportLogs)
+#     for cls in reversed(classes):
+#         bpy.utils.unregister_class(cls)
+
+
+# 使用例 - 実際のアドオンでの利用方法
+"""
+import bpy
+from bpy.types import AddonPreferences
+from . import logger
+
+class MyAddonPreferences(AddonPreferences, logger.AddonLoggerPreferencesMixin):
+    bl_idname = "my_addon"
+    
+    # カスタムプロパティの定義
+    some_prop: bpy.props.BoolProperty(name="Some Property", default=True)
+    
+    def draw(self, context):
+        layout = self.layout
+        
+        # ロガー設定を描画
+        self.draw_logger_preferences(layout)
+        
+        # その他の設定
+        layout.prop(self, "some_prop")
+
+def register():
+    bpy.utils.register_class(MyAddonPreferences)
+    logger.register()
+    
+    # モジュールごとのロガーを設定
+    prefs = bpy.context.preferences.addons[MyAddonPreferences.bl_idname].preferences
+    
+    # 方法1: 個別に登録
+    prefs.register_module("my_addon.core", "DEBUG")
+    prefs.register_module("my_addon.ui", "INFO")
+    
+    # 方法2: まとめて登録
+    prefs.register_modules({
+        "my_addon.operators": "INFO",
+        "my_addon.utils": "WARNING"
+    })
+    
+    # 設定を適用
+    prefs.update_logger_settings()
+    
+    # 各モジュールでロガーを取得して使用
+    core_logger = logger.get_logger("my_addon.core")
+    core_logger.info("Core module initialized")
+
+def unregister():
+    logger.unregister()
+    bpy.utils.unregister_class(MyAddonPreferences)
+
+if __name__ == "__main__":
+    register()
+"""
