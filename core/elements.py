@@ -1,3 +1,8 @@
+"""
+名前要素の基本インターフェイスおよび基本実装
+旧 NamingElementProcessor
+"""
+
 from abc import ABC, abstractmethod
 import re
 from typing import Any, Tuple
@@ -5,6 +10,25 @@ from typing import Any, Tuple
 from ..utils import logging
 
 log = logging.get_logger(__name__)
+
+
+class ElementData:
+    """
+    Data structure for element configuration
+    """
+
+    def __init__(
+        self, id: str, order: int, enabled: bool = True, separator: str = "", **kwargs
+    ):
+        self.id = id
+        self.order = order
+        self.enabled = enabled
+        self.separator = separator
+        self.element_type = kwargs.get("element_type", "")
+
+        # Store any additional properties
+        for key, value in kwargs.items():
+            setattr(self, key, value)
 
 
 class INameElement(ABC):
@@ -80,7 +104,7 @@ class BaseElement(INameElement, ABC):
     オペレーター実行時には standby により値だけをリセットする。
     """
 
-    def __init__(self, element_data):  # TODO: element_dataの型を定義する
+    def __init__(self, element_data: ElementData):
         self._id = element_data.get("id")
         self._order = element_data.get("order")
         self._enabled = element_data.get("enabled")
@@ -206,7 +230,7 @@ class ICounter(ABC):
 class BaseCounter(BaseElement, ICounter):
     """Base implementation for all counters"""
 
-    def __init__(self, element_data):
+    def __init__(self, element_data: ElementData):
         super().__init__(element_data)
         self._value_int = None
         self.forward = None
