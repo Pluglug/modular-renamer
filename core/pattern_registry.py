@@ -8,6 +8,7 @@ from typing import Dict, List
 import os
 
 from .pattern import NamingPattern
+from .element_registry import ElementRegistry
 
 
 class PatternRegistry:
@@ -15,7 +16,7 @@ class PatternRegistry:
     Registry that manages naming patterns for different target types
     """
 
-    def __init__(self, element_registry):
+    def __init__(self, element_registry: ElementRegistry):
         """
         Initialize the pattern registry
 

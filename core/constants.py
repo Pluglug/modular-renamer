@@ -1,8 +1,8 @@
-RENAMABLE_OBJECT_TYPES = [
-    ("POSE_BONE", "Pose Bone", "Rename pose bones"),
-    ("OBJECT", "Object", "Rename objects"),
-    ("MATERIAL", "Material", "Rename materials"),
-]
+# RENAMABLE_OBJECT_TYPES = [
+#     ("POSE_BONE", "Pose Bone", "Rename pose bones"),
+#     ("OBJECT", "Object", "Rename objects"),
+#     ("MATERIAL", "Material", "Rename materials"),
+# ]
 
 # Default separator options
 SEPARATOR_ITEMS = [

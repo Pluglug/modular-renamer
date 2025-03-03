@@ -4,7 +4,8 @@
 """
 
 from typing import List, Dict, Optional
-from .elements import INameElement
+from .elements_base import INameElement
+from .element_registry import ElementRegistry
 
 
 class NamingPattern:
@@ -13,7 +14,11 @@ class NamingPattern:
     """
 
     def __init__(
-        self, name: str, target_type: str, elements_config: List[Dict], element_registry
+        self,
+        name: str,
+        target_type: str,
+        elements_config: List[Dict],
+        element_registry: ElementRegistry,
     ):
         """
         Initialize a naming pattern
@@ -30,7 +35,9 @@ class NamingPattern:
 
         self._load_elements(elements_config, element_registry)
 
-    def _load_elements(self, elements_config: List[Dict], element_registry):
+    def _load_elements(
+        self, elements_config: List[Dict], element_registry: ElementRegistry
+    ) -> None:
         """
         Load elements from configuration
 

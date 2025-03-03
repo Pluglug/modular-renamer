@@ -1,6 +1,10 @@
 from typing import List, Dict, Any, Optional
-from .core import IRenameTarget, NamespaceManager, ConflictResolver
-from .core import NamingPattern, PatternRegistry
+
+from .pattern import NamingPattern
+from .pattern_registry import PatternRegistry
+from .rename_target import IRenameTarget
+from .namespace import NamespaceManager
+from .conflict_resolver import ConflictResolver
 
 
 class RenameContext:

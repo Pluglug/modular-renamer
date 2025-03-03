@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any
 
-from .core import IRenameTarget
+from .rename_target import IRenameTarget
 
 
 class CollectionStrategy(ABC):

@@ -62,7 +62,7 @@ classDiagram
         }
         class ElementRegistry {
             #__init__()
-            +register_element_type(type_name: str, element_class: Type)
+            +register_element_type(type_name: str, element_class: INameElement)
             +create_element(type_name: str, config: dict) INameElement
             +get_registered_types() List[...]
             +validate_elements_config(config: List) List[...]
@@ -89,15 +89,15 @@ classDiagram
             +get_namespace(target: IRenameTarget) INamespace
         }
         class NamingPattern {
-            #__init__(name: str, target_type: str, elements_config: List[...], element_registry)
-            #_load_elements(elements_config: List[...], element_registry)
+            #__init__(name: str, target_type: str, elements_config: List[...], element_registry: ElementRegistry)
+            #_load_elements(elements_config: List[...], element_registry: ElementRegistry) None
             +parse_name(name: str) None
             +update_elements(updates: Dict) None
             +render_name() str
             +validate() List[...]
         }
         class PatternRegistry {
-            #__init__(element_registry)
+            #__init__(element_registry: ElementRegistry)
             +register_pattern(pattern: NamingPattern) None
             +get_pattern(target_type: str, name: str) NamingPattern
             +get_patterns_for_type(target_type: str) List[...]

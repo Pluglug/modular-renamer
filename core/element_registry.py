@@ -3,7 +3,7 @@
 """
 
 from typing import Dict, Type, List
-from .elements import INameElement
+from .elements_base import INameElement, NameElement
 
 
 class ElementRegistry:
@@ -14,7 +14,7 @@ class ElementRegistry:
     def __init__(self):
         self._element_types: Dict[str, Type] = {}
 
-    def register_element_type(self, type_name: str, element_class: Type):
+    def register_element_type(self, type_name: str, element_class: INameElement):
         """
         Register an element type with the registry
 

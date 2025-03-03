@@ -1,5 +1,6 @@
 from typing import List, Dict, Any
-from .core import IRenameTarget, INamespace, NamespaceManager
+from .rename_target import IRenameTarget
+from .namespace import INamespace, NamespaceManager
 
 
 class ConflictResolver:
