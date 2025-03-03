@@ -527,7 +527,7 @@ class LOGGER_OT_clear_logs(bpy.types.Operator):
 
 
 # ユーティリティ関数
-def get_logger(module_name):
+def get_logger(module_name: str) -> AddonLogger:
     """モジュール用のロガーを取得（ショートカット関数）"""
     return LoggerRegistry.get_logger(module_name)
 
@@ -546,53 +546,12 @@ def register():
 
 # 使用例 - 実際のアドオンでの利用方法
 """
-import bpy
-from bpy.types import AddonPreferences
-from . import logger
+from ..utils.logging import get_logger
+log = get_logger(__name__)
 
-class MyAddonPreferences(AddonPreferences, logger.AddonLoggerPreferencesMixin):
-    bl_idname = "my_addon"
-    
-    # カスタムプロパティの定義
-    some_prop: bpy.props.BoolProperty(name="Some Property", default=True)
-    
-    def draw(self, context):
-        layout = self.layout
-        
-        # ロガー設定を描画
-        self.draw_logger_preferences(layout)
-        
-        # その他の設定
-        layout.prop(self, "some_prop")
-
-def register():
-    bpy.utils.register_class(MyAddonPreferences)
-    logger.register()
-    
-    # モジュールごとのロガーを設定
-    prefs = bpy.context.preferences.addons[MyAddonPreferences.bl_idname].preferences
-    
-    # 方法1: 個別に登録
-    prefs.register_module("my_addon.core", "DEBUG")
-    prefs.register_module("my_addon.ui", "INFO")
-    
-    # 方法2: まとめて登録
-    prefs.register_modules({
-        "my_addon.operators": "INFO",
-        "my_addon.utils": "WARNING"
-    })
-    
-    # 設定を適用
-    prefs.update_logger_settings()
-    
-    # 各モジュールでロガーを取得して使用
-    core_logger = logger.get_logger("my_addon.core")
-    core_logger.info("Core module initialized")
-
-def unregister():
-    logger.unregister()
-    bpy.utils.unregister_class(MyAddonPreferences)
-
-if __name__ == "__main__":
-    register()
+log.debug("This is a debug message")
+log.info("This is an info message")
+log.warning("This is a warning message")
+log.error("This is an error message")
+log.critical("This is a critical message")
 """
