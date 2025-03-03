@@ -10,19 +10,31 @@ bl_info = {
     "category": "3D View",
 }
 
-import bpy
-from . import preferences
-from . import core
-from . import ui
+use_reload = "addon" in locals()
 
-# Registration
+if use_reload:
+    import importlib
+
+    importlib.reload(modular_renamer)
+    del importlib
+
+from . import addon
+
+addon.init_addon(
+    [
+        "utils.logging",
+        "addon",
+        "core",
+        "ui",
+        "preferences",
+    ],
+    use_reload=use_reload,
+)
+
+
 def register():
-    preferences.register()
-    ui.register()
+    addon.register_modules()
+
 
 def unregister():
-    ui.unregister()
-    preferences.unregister()
-
-if __name__ == "__main__":
-    register()
+    addon.unregister_modules()
