@@ -1,9 +1,9 @@
-import re
 import random
-from typing import Tuple, List
-from ..core.elements import BaseElement
+import re
+from typing import List, Tuple
 
-from ..utils import regex_utils, logging
+from ..core.elements import BaseElement
+from ..utils import logging, regex_utils
 
 log = logging.get_logger(__name__)
 

@@ -3,9 +3,10 @@
 旧 NamingProcessor
 """
 
-from typing import List, Dict, Optional
-from .elements_base import INameElement
+from typing import Dict, List, Optional
+
 from .element_registry import ElementRegistry
+from .elements_base import INameElement
 
 
 class NamingPattern:

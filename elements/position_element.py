@@ -1,9 +1,10 @@
-import re
 import random
+import re
 from typing import List, Tuple
-from ..core.elements import BaseElement
+
 from ..core.constants import POSITION_ENUM_ITEMS
-from ..utils import regex_utils, logging
+from ..core.elements import BaseElement
+from ..utils import logging, regex_utils
 
 log = logging.get_logger(__name__)
 

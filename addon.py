@@ -9,15 +9,16 @@ Blenderアドオン開発用の拡張可能なフレームワーク
 - クラス自動登録システム
 """
 
-import bpy
 import importlib
+import inspect
 import os
 import pkgutil
-import sys
-import inspect
 import re
+import sys
 from collections import defaultdict
-from typing import List, Dict, Set, Pattern
+from typing import Dict, List, Pattern, Set
+
+import bpy
 
 # from .utils.logging import get_logger
 

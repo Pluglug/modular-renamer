@@ -2,7 +2,8 @@
 名前要素の登録・管理・生成
 """
 
-from typing import Dict, Type, List
+from typing import Dict, List, Type
+
 from .elements_base import INameElement, NameElement
 
 
