@@ -10,7 +10,7 @@ from .element_registry import ElementRegistry
 
 class NamingPattern:
     """
-    Represents a naming pattern that contains multiple elements to build names
+    名前を構築するための複数の要素を含む命名パターンを表す
     """
 
     def __init__(
@@ -21,13 +21,13 @@ class NamingPattern:
         element_registry: ElementRegistry,
     ):
         """
-        Initialize a naming pattern
+        命名パターンを初期化する
 
         Args:
-            name: Name of the pattern
-            target_type: Type of target this pattern is for (object, bone, material, etc.)
-            elements_config: List of configurations for each element
-            element_registry: ElementRegistry to create elements
+            name: パターンの名前
+            target_type: このパターンの対象タイプ（オブジェクト、ボーン、マテリアルなど）
+            elements_config: 各要素の設定リスト
+            element_registry: 要素を作成するためのElementRegistry
         """
         self.name = name
         self.target_type = target_type
@@ -39,11 +39,11 @@ class NamingPattern:
         self, elements_config: List[Dict], element_registry: ElementRegistry
     ) -> None:
         """
-        Load elements from configuration
+        設定から要素を読み込む
 
         Args:
-            elements_config: List of element configurations
-            element_registry: ElementRegistry to create elements
+            elements_config: 要素設定のリスト
+            element_registry: 要素を作成するためのElementRegistry
         """
         for config in elements_config:
             try:
@@ -51,32 +51,32 @@ class NamingPattern:
                 element = element_registry.create_element(element_type, config)
                 self.elements.append(element)
             except (KeyError, TypeError) as e:
-                print(f"Error loading element: {e}")
+                print(f"要素の読み込み中にエラーが発生しました: {e}")
 
-        # Sort elements by order
+        # 要素を順序でソート
         self.elements.sort(key=lambda e: e.order)
 
     def parse_name(self, name: str) -> None:
         """
-        Parse a name and extract element values
+        名前を解析して要素の値を抽出する
 
         Args:
-            name: Name to parse
+            name: 解析する名前
         """
-        # Reset all elements
+        # すべての要素をリセット
         for element in self.elements:
             element.standby()
 
-        # Parse the name
+        # 名前を解析
         for element in self.elements:
             element.parse(name)
 
     def update_elements(self, updates: Dict) -> None:
         """
-        Update multiple elements' values
+        複数の要素の値を更新する
 
         Args:
-            updates: Dictionary mapping element IDs to new values
+            updates: 要素IDを新しい値にマッピングする辞書
         """
         for element_id, new_value in updates.items():
             for element in self.elements:
@@ -86,17 +86,17 @@ class NamingPattern:
 
     def render_name(self) -> str:
         """
-        Render the pattern into a name string
+        パターンを名前文字列にレンダリングする
 
         Returns:
-            The rendered name
+            レンダリングされた名前
         """
-        # Get all enabled elements that have values
+        # 値を持つ有効な要素をすべて取得
         parts = []
         for element in self.elements:
             if element.enabled:
                 render_result = element.render()
-                if render_result[1]:  # If there's a value
+                if render_result[1]:  # 値がある場合
                     separator, value = render_result
                     if parts and separator:
                         parts.append(separator)
@@ -106,31 +106,31 @@ class NamingPattern:
 
     def validate(self) -> List[str]:
         """
-        Validate the pattern configuration
+        パターン設定を検証する
 
         Returns:
-            List of error messages, empty if valid
+            エラーメッセージのリスト（有効な場合は空）
         """
         errors = []
 
-        # Check if there are any elements
+        # 要素が存在するかチェック
         if not self.elements:
-            errors.append("Pattern has no elements")
+            errors.append("パターンに要素がありません")
             return errors
 
-        # Check for duplicate element IDs
+        # 重複する要素IDをチェック
         element_ids = {}
         for element in self.elements:
             if element.id in element_ids:
-                errors.append(f"Duplicate element ID: {element.id}")
+                errors.append(f"重複する要素ID: {element.id}")
             else:
                 element_ids[element.id] = True
 
-        # Check for duplicate orders
+        # 重複する順序をチェック
         element_orders = {}
         for element in self.elements:
             if element.order in element_orders:
-                errors.append(f"Duplicate element order: {element.order}")
+                errors.append(f"重複する要素順序: {element.order}")
             else:
                 element_orders[element.order] = True
 
