@@ -1,20 +1,19 @@
 DEPENDS_ON = ["utils.logging"]
 
-import bpy
-from bpy.props import (
-    StringProperty,
-    BoolProperty,
-    IntProperty,
-    EnumProperty,
-    CollectionProperty,
-    PointerProperty,
-    FloatProperty,
-)
 import json
 
-from .utils.logging import AddonLoggerPreferencesMixin
+import bpy
+from bpy.props import (
+    BoolProperty,
+    CollectionProperty,
+    EnumProperty,
+    FloatProperty,
+    IntProperty,
+    PointerProperty,
+    StringProperty,
+)
 
-from .utils.logging import get_logger
+from .utils.logging import AddonLoggerPreferencesMixin, get_logger
 
 log = get_logger(__name__)
 

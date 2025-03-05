@@ -1,19 +1,19 @@
+import datetime
 import logging
 import os
 import sys
 import traceback
-import datetime
 from collections import deque
 from enum import Enum
 
 import bpy
 from bpy.props import (
     BoolProperty,
-    EnumProperty,
-    StringProperty,
-    IntProperty,
     CollectionProperty,
+    EnumProperty,
+    IntProperty,
     PointerProperty,
+    StringProperty,
 )
 from bpy.types import Operator, PropertyGroup
 

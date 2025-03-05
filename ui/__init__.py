@@ -1,21 +1,17 @@
-import bpy
 import random
+
+import bpy
 from bpy.props import (
-    StringProperty,
     BoolProperty,
-    IntProperty,
-    EnumProperty,
     CollectionProperty,
+    EnumProperty,
+    IntProperty,
+    StringProperty,
 )
 
 from ..addon import prefs
-
-from ..preferences import (
-    ELEMENT_TYPE_ITEMS,
-    POSITION_ENUM_ITEMS,
-)
 from ..core import NamespaceManager, NamingProcessor, PoseBoneObject, debug_log
-
+from ..preferences import ELEMENT_TYPE_ITEMS, POSITION_ENUM_ITEMS
 from ..utils.logging import get_logger
 
 log = get_logger(__name__)
