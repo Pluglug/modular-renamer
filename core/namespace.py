@@ -1,68 +1,67 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Callable, Any, Set
+from typing import Any, Callable, Dict, Set
 
 from .rename_target import IRenameTarget
-from .namespace import INamespace
 
 
 class INamespace(ABC):
     """
-    Interface for name namespaces
+    名前空間のインターフェース
     """
 
     @abstractmethod
     def contains(self, name: str) -> bool:
         """
-        Check if a name exists in this namespace
+        この名前空間に名前が存在するかチェックする
 
         Args:
-            name: Name to check
+            name: チェックする名前
 
         Returns:
-            True if the name exists
+            名前が存在する場合はTrue
         """
         pass
 
     @abstractmethod
     def add(self, name: str) -> None:
         """
-        Add a name to this namespace
+        この名前空間に名前を追加する
 
         Args:
-            name: Name to add
+            name: 追加する名前
         """
         pass
 
     @abstractmethod
     def remove(self, name: str) -> None:
         """
-        Remove a name from this namespace
+        この名前空間から名前を削除する
 
         Args:
-            name: Name to remove
+            name: 削除する名前
         """
         pass
 
     @abstractmethod
     def update(self, old_name: str, new_name: str) -> None:
         """
-        Update a name in this namespace
+        この名前空間の名前を更新する
 
         Args:
-            old_name: Old name
-            new_name: New name
+            old_name: 古い名前
+            new_name: 新しい名前
         """
         pass
 
 
 class NamespaceBase(INamespace):
     """
-    Base implementation of INamespace
+    INamespaceの基本実装
     """
 
     def __init__(self):
         """
-        Initialize the namespace
+        名前空間を初期化する
         """
         self.names: Set[str] = set()
         self._initialize()
@@ -70,48 +69,48 @@ class NamespaceBase(INamespace):
     @abstractmethod
     def _initialize(self) -> None:
         """
-        Initialize the namespace with names
+        名前で名前空間を初期化する
         """
         pass
 
     def contains(self, name: str) -> bool:
         """
-        Check if a name exists in this namespace
+        この名前空間に名前が存在するかチェックする
 
         Args:
-            name: Name to check
+            name: チェックする名前
 
         Returns:
-            True if the name exists
+            名前が存在する場合はTrue
         """
         return name in self.names
 
     def add(self, name: str) -> None:
         """
-        Add a name to this namespace
+        この名前空間に名前を追加する
 
         Args:
-            name: Name to add
+            name: 追加する名前
         """
         self.names.add(name)
 
     def remove(self, name: str) -> None:
         """
-        Remove a name from this namespace
+        この名前空間から名前を削除する
 
         Args:
-            name: Name to remove
+            name: 削除する名前
         """
         if name in self.names:
             self.names.remove(name)
 
     def update(self, old_name: str, new_name: str) -> None:
         """
-        Update a name in this namespace
+        この名前空間の名前を更新する
 
         Args:
-            old_name: Old name
-            new_name: New name
+            old_name: 古い名前
+            new_name: 新しい名前
         """
         self.remove(old_name)
         self.add(new_name)
@@ -119,50 +118,50 @@ class NamespaceBase(INamespace):
 
 class NamespaceManager:
     """
-    Manages namespaces for different target types
+    異なるターゲットタイプの名前空間を管理する
     """
 
     def __init__(self):
         """
-        Initialize the namespace manager
+        名前空間マネージャーを初期化する
         """
         self.namespaces: Dict[Any, INamespace] = {}
         self._namespace_factories: Dict[str, Callable] = {}
 
     def register_namespace_type(self, target_type: str, factory: Callable) -> None:
         """
-        Register a namespace factory for a target type
+        ターゲットタイプの名前空間ファクトリを登録する
 
         Args:
-            target_type: Type of target
-            factory: Factory function that creates a namespace for a target
+            target_type: ターゲットのタイプ
+            factory: ターゲットの名前空間を作成するファクトリ関数
         """
         self._namespace_factories[target_type] = factory
 
     def get_namespace(self, target: IRenameTarget) -> INamespace:
         """
-        Get the namespace for a target
+        ターゲットの名前空間を取得する
 
         Args:
-            target: Target to get namespace for
+            target: 名前空間を取得するターゲット
 
         Returns:
-            Namespace for the target
+            ターゲットの名前空間
 
         Raises:
-            KeyError: If no namespace factory is registered for the target type
+            KeyError: ターゲットタイプの名前空間ファクトリが登録されていない場合
         """
         target_type = target.target_type
         namespace_key = target.get_namespace_key()
 
-        # Return existing namespace if it exists
+        # 既存の名前空間がある場合は返す
         if namespace_key in self.namespaces:
             return self.namespaces[namespace_key]
 
-        # Create new namespace
+        # 新しい名前空間を作成
         if target_type not in self._namespace_factories:
             raise KeyError(
-                f"No namespace factory registered for target type: {target_type}"
+                f"ターゲットタイプの名前空間ファクトリが登録されていません: {target_type}"
             )
 
         factory = self._namespace_factories[target_type]

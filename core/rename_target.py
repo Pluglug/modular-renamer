@@ -9,17 +9,17 @@ from typing import Any, Set
 
 class IRenameTarget(ABC):
     """
-    Interface for objects that can be renamed
+    リネーム可能なオブジェクトのインターフェース
     """
 
     @property
     @abstractmethod
     def target_type(self) -> str:
         """
-        Get the type of this target
+        このターゲットのタイプを取得する
 
         Returns:
-            Target type string
+            ターゲットタイプ文字列
         """
         pass
 
@@ -27,39 +27,39 @@ class IRenameTarget(ABC):
     @abstractmethod
     def blender_object(self) -> Any:
         """
-        Get the underlying Blender object
+        基となるBlenderオブジェクトを取得する
 
         Returns:
-            Blender object
+            Blenderオブジェクト
         """
         pass
 
     @abstractmethod
     def get_name(self) -> str:
         """
-        Get the current name of the target
+        ターゲットの現在の名前を取得する
 
         Returns:
-            Current name
+            現在の名前
         """
         pass
 
     @abstractmethod
     def set_name(self, name: str) -> None:
         """
-        Set the name of the target
+        ターゲットの名前を設定する
 
         Args:
-            name: New name
+            name: 新しい名前
         """
         pass
 
     @abstractmethod
     def get_namespace_key(self) -> Any:
         """
-        Get the key for the namespace this target belongs to
+        このターゲットが属する名前空間のキーを取得する
 
         Returns:
-            Namespace key
+            名前空間キー
         """
         pass

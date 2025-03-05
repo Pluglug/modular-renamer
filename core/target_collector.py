@@ -1,66 +1,66 @@
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
 from .rename_target import IRenameTarget
 
 
 class CollectionStrategy(ABC):
     """
-    Interface for target collection strategies
+    ターゲット収集戦略のインターフェース
     """
 
     @abstractmethod
     def collect(self, context: Any) -> List[IRenameTarget]:
         """
-        Collect targets from the context
+        コンテキストからターゲットを収集する
 
         Args:
-            context: Blender context
+            context: Blenderコンテキスト
 
         Returns:
-            List of targets
+            ターゲットのリスト
         """
         pass
 
 
 class TargetCollector:
     """
-    Collects targets based on registered strategies
+    登録された戦略に基づいてターゲットを収集する
     """
 
     def __init__(self):
         """
-        Initialize the target collector
+        ターゲットコレクターを初期化する
         """
         self.strategies: Dict[str, CollectionStrategy] = {}
 
     def register_strategy(self, target_type: str, strategy: CollectionStrategy) -> None:
         """
-        Register a collection strategy for a target type
+        ターゲットタイプの収集戦略を登録する
 
         Args:
-            target_type: Type of target
-            strategy: Collection strategy
+            target_type: ターゲットのタイプ
+            strategy: 収集戦略
         """
         self.strategies[target_type] = strategy
 
     def collect(self, target_type: str, context: Any) -> List[IRenameTarget]:
         """
-        Collect targets of a specific type
+        特定のタイプのターゲットを収集する
 
         Args:
-            target_type: Type of target to collect
-            context: Blender context
+            target_type: 収集するターゲットのタイプ
+            context: Blenderコンテキスト
 
         Returns:
-            List of targets
+            ターゲットのリスト
 
         Raises:
-            KeyError: If no strategy is registered for the target type
+            KeyError: ターゲットタイプの戦略が登録されていない場合
         """
         if target_type not in self.strategies:
             raise KeyError(
-                f"No collection strategy registered for target type: {target_type}"
+                f"ターゲットタイプの収集戦略が登録されていません: {target_type}"
             )
 
         strategy = self.strategies[target_type]

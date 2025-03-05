@@ -4,75 +4,77 @@
 """
 
 import json
-from typing import Dict, List
 import os
+from typing import Dict, List
 
-from .pattern import NamingPattern
 from .element_registry import ElementRegistry
+from .pattern import NamingPattern
 
 
 class PatternRegistry:
     """
-    Registry that manages naming patterns for different target types
+    異なるターゲットタイプの命名パターンを管理するレジストリ
     """
 
     def __init__(self, element_registry: ElementRegistry):
         """
-        Initialize the pattern registry
+        パターンレジストリを初期化する
 
         Args:
-            element_registry: ElementRegistry to create elements for patterns
+            element_registry: パターンの要素を作成するためのElementRegistry
         """
         self.patterns: Dict[str, Dict[str, NamingPattern]] = {}
         self.element_registry = element_registry
 
     def register_pattern(self, pattern: NamingPattern) -> None:
         """
-        Register a pattern with the registry
+        レジストリにパターンを登録する
 
         Args:
-            pattern: NamingPattern to register
+            pattern: 登録するNamingPattern
         """
         target_type = pattern.target_type
 
-        # Create target type dictionary if it doesn't exist
+        # ターゲットタイプの辞書が存在しない場合は作成
         if target_type not in self.patterns:
             self.patterns[target_type] = {}
 
-        # Register the pattern
+        # パターンを登録
         self.patterns[target_type][pattern.name] = pattern
 
     def get_pattern(self, target_type: str, name: str) -> NamingPattern:
         """
-        Get a pattern by target type and name
+        ターゲットタイプと名前でパターンを取得する
 
         Args:
-            target_type: Target type
-            name: Pattern name
+            target_type: ターゲットタイプ
+            name: パターン名
 
         Returns:
-            The requested pattern
+            要求されたパターン
 
         Raises:
-            KeyError: If the pattern doesn't exist
+            KeyError: パターンが存在しない場合
         """
         if target_type not in self.patterns:
-            raise KeyError(f"No patterns for target type: {target_type}")
+            raise KeyError(f"ターゲットタイプのパターンが存在しません: {target_type}")
 
         if name not in self.patterns[target_type]:
-            raise KeyError(f"Pattern '{name}' not found for target type: {target_type}")
+            raise KeyError(
+                f"ターゲットタイプ {target_type} のパターン '{name}' が見つかりません"
+            )
 
         return self.patterns[target_type][name]
 
     def get_patterns_for_type(self, target_type: str) -> List[NamingPattern]:
         """
-        Get all patterns for a target type
+        ターゲットタイプのすべてのパターンを取得する
 
         Args:
-            target_type: Target type
+            target_type: ターゲットタイプ
 
         Returns:
-            List of patterns for the target type
+            ターゲットタイプのパターンリスト
         """
         if target_type not in self.patterns:
             return []
@@ -81,19 +83,19 @@ class PatternRegistry:
 
     def load_from_file(self, path: str) -> None:
         """
-        Load patterns from a JSON file
+        JSONファイルからパターンを読み込む
 
         Args:
-            path: Path to the JSON file
+            path: JSONファイルのパス
         """
         try:
             with open(path, "r") as f:
                 data = json.load(f)
 
-            # Clear existing patterns
+            # 既存のパターンをクリア
             self.patterns = {}
 
-            # Load patterns
+            # パターンを読み込む
             for target_type, patterns in data.items():
                 for pattern_name, pattern_data in patterns.items():
                     elements_config = pattern_data.get("elements", [])
@@ -106,32 +108,32 @@ class PatternRegistry:
                     self.register_pattern(pattern)
 
         except (IOError, json.JSONDecodeError) as e:
-            print(f"Error loading patterns from {path}: {e}")
+            print(f"パターンの読み込み中にエラーが発生しました {path}: {e}")
 
     def save_to_file(self, path: str) -> bool:
         """
-        Save patterns to a JSON file
+        パターンをJSONファイルに保存する
 
         Args:
-            path: Path to the JSON file
+            path: JSONファイルのパス
 
         Returns:
-            True if successful, False otherwise
+            成功した場合はTrue、それ以外はFalse
         """
         try:
-            # Ensure the directory exists
+            # ディレクトリが存在することを確認
             os.makedirs(os.path.dirname(path), exist_ok=True)
 
-            # Convert patterns to a serializable format
+            # パターンをシリアライズ可能な形式に変換
             data = {}
             for target_type, patterns in self.patterns.items():
                 data[target_type] = {}
                 for pattern_name, pattern in patterns.items():
-                    # Serialize elements
+                    # 要素をシリアライズ
                     elements = []
                     for element in pattern.elements:
-                        # Extract serializable properties from element
-                        # This assumes elements have a to_dict method
+                        # 要素からシリアライズ可能なプロパティを抽出
+                        # 要素にto_dictメソッドがあることを前提とする
                         elements.append(
                             {
                                 "id": element.id,
@@ -139,18 +141,18 @@ class PatternRegistry:
                                 "order": element.order,
                                 "enabled": element.enabled,
                                 "separator": element.separator,
-                                # Additional properties would be added here
+                                # 追加のプロパティはここに追加
                             }
                         )
 
                     data[target_type][pattern_name] = {"elements": elements}
 
-            # Write to file
+            # ファイルに書き込み
             with open(path, "w") as f:
                 json.dump(data, f, indent=2)
 
             return True
 
         except (IOError, TypeError) as e:
-            print(f"Error saving patterns to {path}: {e}")
+            print(f"パターンの保存中にエラーが発生しました {path}: {e}")
             return False

@@ -1,24 +1,24 @@
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
 
+from .conflict_resolver import ConflictResolver
+from .namespace import NamespaceManager
 from .pattern import NamingPattern
 from .pattern_registry import PatternRegistry
 from .rename_target import IRenameTarget
-from .namespace import NamespaceManager
-from .conflict_resolver import ConflictResolver
 
 
 class RenameContext:
     """
-    Context for a rename operation
+    リネーム操作のコンテキスト
     """
 
     def __init__(self, target: IRenameTarget, pattern: NamingPattern):
         """
-        Initialize the rename context
+        リネームコンテキストを初期化する
 
         Args:
-            target: Target being renamed
-            pattern: Naming pattern to use
+            target: リネーム対象
+            pattern: 使用する命名パターン
         """
         self.target = target
         self.pattern = pattern
@@ -33,7 +33,7 @@ class RenameContext:
 
 class RenameService:
     """
-    Service for renaming targets
+    ターゲットのリネームサービス
     """
 
     def __init__(
@@ -43,12 +43,12 @@ class RenameService:
         conflict_resolver: ConflictResolver,
     ):
         """
-        Initialize the rename service
+        リネームサービスを初期化する
 
         Args:
-            pattern_registry: PatternRegistry instance
-            namespace_manager: NamespaceManager instance
-            conflict_resolver: ConflictResolver instance
+            pattern_registry: PatternRegistryインスタンス
+            namespace_manager: NamespaceManagerインスタンス
+            conflict_resolver: ConflictResolverインスタンス
         """
         self.pattern_registry = pattern_registry
         self.namespace_manager = namespace_manager
@@ -56,65 +56,65 @@ class RenameService:
 
     def prepare(self, target: IRenameTarget, pattern_name: str) -> RenameContext:
         """
-        Prepare a rename operation
+        リネーム操作を準備する
 
         Args:
-            target: Target to rename
-            pattern_name: Name of pattern to use
+            target: リネーム対象
+            pattern_name: 使用するパターンの名前
 
         Returns:
-            Rename context
+            リネームコンテキスト
 
         Raises:
-            KeyError: If pattern doesn't exist
+            KeyError: パターンが存在しない場合
         """
         target_type = target.target_type
         pattern = self.pattern_registry.get_pattern(target_type, pattern_name)
 
         context = RenameContext(target, pattern)
 
-        # Parse the target's current name
+        # ターゲットの現在の名前を解析
         pattern.parse_name(target.get_name())
 
-        # Generate proposed name
+        # 提案名を生成
         context.proposed_name = pattern.render_name()
 
         return context
 
     def update_elements(self, context: RenameContext, updates: Dict) -> RenameContext:
         """
-        Update elements in a rename context
+        リネームコンテキストの要素を更新する
 
         Args:
-            context: Rename context
-            updates: Dictionary of element updates
+            context: リネームコンテキスト
+            updates: 要素更新の辞書
 
         Returns:
-            Updated context
+            更新されたコンテキスト
         """
-        # Update pattern elements
+        # パターン要素を更新
         context.pattern.update_elements(updates)
 
-        # Update proposed name
+        # 提案名を更新
         context.proposed_name = context.pattern.render_name()
 
         return context
 
     def execute(self, context: RenameContext, strategy: str) -> bool:
         """
-        Execute a rename operation
+        リネーム操作を実行する
 
         Args:
-            context: Rename context
-            strategy: Conflict resolution strategy
+            context: リネームコンテキスト
+            strategy: 競合解決戦略
 
         Returns:
-            True if successful
+            成功した場合はTrue
         """
         if not context.proposed_name:
             return False
 
-        # Resolve conflicts
+        # 競合を解決
         context.final_name = self.conflict_resolver.resolve(
             context.target, context.proposed_name, strategy
         )
@@ -122,11 +122,11 @@ class RenameService:
         if not context.final_name:
             return False
 
-        # Update the target's name
+        # ターゲットの名前を更新
         old_name = context.target.get_name()
         context.target.set_name(context.final_name)
 
-        # Update namespace
+        # 名前空間を更新
         namespace = self.namespace_manager.get_namespace(context.target)
         namespace.update(old_name, context.final_name)
 
@@ -140,28 +140,28 @@ class RenameService:
         strategy: str,
     ) -> List[RenameContext]:
         """
-        Rename multiple targets
+        複数のターゲットをリネームする
 
         Args:
-            targets: List of targets to rename
-            pattern_name: Name of pattern to use
-            updates: Dictionary of element updates
-            strategy: Conflict resolution strategy
+            targets: リネーム対象のリスト
+            pattern_name: 使用するパターンの名前
+            updates: 要素更新の辞書
+            strategy: 競合解決戦略
 
         Returns:
-            List of rename contexts
+            リネームコンテキストのリスト
         """
         contexts = []
 
         for target in targets:
-            # Skip targets with invalid type
+            # 無効なタイプのターゲットをスキップ
             try:
                 context = self.prepare(target, pattern_name)
                 context = self.update_elements(context, updates)
                 self.execute(context, strategy)
                 contexts.append(context)
             except KeyError:
-                # Skip targets for which the pattern doesn't exist
+                # パターンが存在しないターゲットをスキップ
                 pass
 
         return contexts

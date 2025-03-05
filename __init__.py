@@ -21,13 +21,21 @@ if use_reload:
 from . import addon
 
 addon.init_addon(
-    [
-        "utils.logging",
-        "addon",
-        "core",
-        "ui",
+    module_patterns=[
+        "core.*",
+        "utils.*",
+        "ui.*",
+        # "operators.*",
         "preferences",
     ],
+    # トラブルシューティング用（順序強制指定）
+    # force_order=[
+    #     "addon",
+    #     "utils.logging",
+    #     "core",
+    #     "ui",
+    #     "preferences"
+    # ],
     use_reload=use_reload,
 )
 
