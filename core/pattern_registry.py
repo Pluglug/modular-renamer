@@ -60,7 +60,9 @@ class PatternRegistry:
             raise KeyError(f"ターゲットタイプのパターンが存在しません: {target_type}")
 
         if name not in self.patterns[target_type]:
-            raise KeyError(f"ターゲットタイプ {target_type} のパターン '{name}' が見つかりません")
+            raise KeyError(
+                f"ターゲットタイプ {target_type} のパターン '{name}' が見つかりません"
+            )
 
         return self.patterns[target_type][name]
 

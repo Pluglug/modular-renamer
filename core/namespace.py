@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, Set
 
-from .namespace import INamespace
 from .rename_target import IRenameTarget
 
 

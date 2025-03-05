@@ -4,7 +4,7 @@
 
 from typing import Dict, List, Type
 
-from .elements_base import INameElement, NameElement
+from .elements_base import INameElement
 
 
 class ElementRegistry:
@@ -83,21 +83,29 @@ class ElementRegistry:
                 continue
 
             if "type" not in element_config:
-                errors.append(f"インデックス {idx} の要素に 'type' フィールドがありません")
+                errors.append(
+                    f"インデックス {idx} の要素に 'type' フィールドがありません"
+                )
                 continue
 
             element_type = element_config["type"]
             if element_type not in self._element_types:
-                errors.append(f"インデックス {idx} に不明な要素タイプ '{element_type}' があります")
+                errors.append(
+                    f"インデックス {idx} に不明な要素タイプ '{element_type}' があります"
+                )
                 continue
 
             if "id" not in element_config:
-                errors.append(f"インデックス {idx} の要素に 'id' フィールドがありません")
+                errors.append(
+                    f"インデックス {idx} の要素に 'id' フィールドがありません"
+                )
                 continue
 
             element_id = element_config["id"]
             if element_id in element_ids:
-                errors.append(f"インデックス {idx} に重複した要素ID '{element_id}' があります")
+                errors.append(
+                    f"インデックス {idx} に重複した要素ID '{element_id}' があります"
+                )
             else:
                 element_ids.add(element_id)
 
