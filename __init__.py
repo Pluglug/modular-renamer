@@ -11,11 +11,10 @@ bl_info = {
 }
 
 use_reload = "addon" in locals()
-
 if use_reload:
     import importlib
 
-    importlib.reload(modular_renamer)
+    importlib.reload(locals()["addon"])
     del importlib
 
 from . import addon
