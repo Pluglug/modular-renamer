@@ -11,6 +11,7 @@ from bpy.props import (
     StringProperty,
 )
 
+from .addon import ADDON_ID
 from .core.constants import ELEMENT_TYPE_ITEMS, POSITION_ENUM_ITEMS, SEPARATOR_ITEMS
 from .utils.logging import AddonLoggerPreferencesMixin, get_logger
 
@@ -211,7 +212,7 @@ class ModularRenamerPreferences(
 ):
     """Addon preferences for ModularRenamer"""
 
-    bl_idname = "modular-renamer"
+    bl_idname = ADDON_ID
 
     # Collection of all naming patterns
     patterns: CollectionProperty(

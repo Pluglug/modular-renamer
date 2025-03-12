@@ -1015,10 +1015,10 @@ if __name__ == "__main__":
     # クラス図生成
     diagram = generate_class_diagram(
         project_path=".",
-        output_path="./class_diagram.mmd",
+        output_path="./debug/class_diagram.mmd",
         config=config,
         exclude_dirs=[".venv", "docs", "tests", "utils"],
-        exclude_files=["setup.py"],
+        exclude_files=["setup.py", "class_diagram_generator.py"],
         exclude_modules=["config", "utils"],
     )
 
