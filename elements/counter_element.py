@@ -1,8 +1,7 @@
 import random
-import re
-from typing import List, Tuple
+from typing import Tuple
 
-from ..core.elements import BaseElement
+from ..core.elements_base import BaseCounter
 from ..utils import logging, regex_utils
 
 log = logging.get_logger(__name__)

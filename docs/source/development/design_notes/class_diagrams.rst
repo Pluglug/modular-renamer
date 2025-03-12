@@ -6,17 +6,101 @@
     :caption: リネーム処理フロー
 
     sequenceDiagram
-        participant User
+        participant ユーザー
         participant RenameService
         participant NamingPattern
         participant ElementRegistry
+        participant BaseElement
+        participant CounterElement
+        participant ConflictResolver
+        participant NamespaceManager
         
-        User->>RenameService: リネーム要求
+        ユーザー->>RenameService: リネーム要求
         RenameService->>NamingPattern: パターン取得
         NamingPattern->>ElementRegistry: 要素生成
-        ElementRegistry-->>NamingPattern: 要素返却
-        NamingPattern-->>RenameService: パターン適用
-        RenameService-->>User: 結果を表示
+        
+        ElementRegistry->>BaseElement: テキスト要素生成
+        BaseElement-->>ElementRegistry: 要素返却
+        
+        ElementRegistry->>CounterElement: カウンター要素生成
+        CounterElement-->>ElementRegistry: 要素返却
+        
+        ElementRegistry-->>NamingPattern: 全要素返却
+        NamingPattern-->>RenameService: 提案名生成
+        
+        RenameService->>ConflictResolver: 重複チェック依頼
+        ConflictResolver->>NamespaceManager: 名前空間取得
+        NamespaceManager-->>ConflictResolver: 名前空間返却
+        
+        alt 重複あり
+            ConflictResolver->>CounterElement: カウンター値更新
+            CounterElement->>CounterElement: increment()
+            CounterElement-->>ConflictResolver: 新しい値
+            
+            loop 重複が解消されるまで
+                ConflictResolver->>NamespaceManager: 重複チェック
+                NamespaceManager-->>ConflictResolver: 結果
+                
+                opt まだ重複している場合
+                    ConflictResolver->>CounterElement: 再度increment()
+                    CounterElement-->>ConflictResolver: 新しい値
+                end
+            end
+            
+            ConflictResolver-->>RenameService: 解決済み名前
+        else 重複なし
+            ConflictResolver-->>RenameService: 提案名をそのまま返却
+        end
+        
+        RenameService-->>ユーザー: 最終結果表示
+
+
+.. mermaid::
+    :caption: コレクターおよび名前空間のクラス図
+
+    sequenceDiagram
+        participant ユーザー
+        participant RenameService
+        participant TargetCollector
+        participant RenameTarget
+        participant ConflictResolver
+        participant NamespaceManager
+        participant Namespace
+        
+        ユーザー->>RenameService: リネーム要求（対象選択）
+        RenameService->>TargetCollector: ターゲット収集依頼
+        
+        TargetCollector->>TargetCollector: 選択戦略に基づく収集
+        TargetCollector-->>RenameService: RenameTarget配列返却
+        
+        loop 各ターゲットについて
+            RenameService->>RenameTarget: 現在の名前取得
+            RenameTarget-->>RenameService: 名前返却
+            
+            RenameService->>RenameService: 提案名生成（前の図の処理）
+            
+            RenameService->>ConflictResolver: 重複チェック
+            ConflictResolver->>RenameTarget: 名前空間キー取得
+            RenameTarget-->>ConflictResolver: キー返却（例：オブジェクト種別）
+            
+            ConflictResolver->>NamespaceManager: 名前空間取得
+            NamespaceManager->>Namespace: 特定のNamespace取得
+            Namespace-->>NamespaceManager: Namespace返却
+            NamespaceManager-->>ConflictResolver: Namespace返却
+            
+            ConflictResolver->>Namespace: 名前の重複チェック
+            Namespace-->>ConflictResolver: 重複状態返却
+            
+            alt 重複解決後
+                RenameService->>RenameTarget: 名前変更実行
+                RenameTarget->>Namespace: 名前空間更新
+                Namespace-->>RenameTarget: 更新完了
+                RenameTarget-->>RenameService: 変更完了
+            end
+        end
+        
+        RenameService-->>ユーザー: 全ターゲットのリネーム結果
+
 
 
 .. mermaid::

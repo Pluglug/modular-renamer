@@ -1,0 +1,38 @@
+---
+config:
+  theme: default
+  flowchart:
+    curve: basis
+---
+flowchart TD
+    core_conflict_resolver(core.conflict_resolver)
+    core_constants(core.constants)
+    core_element_registry(core.element_registry)
+    core_elements_base(core.elements_base)
+    core_namespace(core.namespace)
+    core_pattern(core.pattern)
+    core_pattern_registry(core.pattern_registry)
+    core_rename_service(core.rename_service)
+    core_rename_target(core.rename_target)
+    core_target_collector(core.target_collector)
+    preferences[preferences]
+    utils_logging(utils.logging)
+    utils_regex_utils(utils.regex_utils)
+    core_conflict_resolver --> core_rename_target
+    core_conflict_resolver --> core_namespace
+    core_element_registry --> core_elements_base
+    core_elements_base --> utils_logging
+    core_namespace --> core_rename_target
+    core_pattern --> core_elements_base
+    core_pattern --> core_element_registry
+    core_pattern_registry --> core_element_registry
+    core_pattern_registry --> core_pattern
+    core_rename_service --> core_namespace
+    core_rename_service --> core_pattern_registry
+    core_rename_service --> core_conflict_resolver
+    core_rename_service --> core_pattern
+    core_rename_service --> core_rename_target
+    core_target_collector --> core_rename_target
+    preferences --> core_constants
+    preferences --> utils_logging
+    utils_regex_utils --> core_constants

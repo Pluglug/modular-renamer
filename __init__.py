@@ -5,17 +5,16 @@ bl_info = {
     "blender": (4, 2, 0),
     "location": "View3D > Sidebar > Tool Tab",
     "description": "A modular, customizable object naming system",
-    "warning": "",
+    "warning": "It'll explode.",
     "doc_url": "",
     "category": "3D View",
 }
 
 use_reload = "addon" in locals()
-
 if use_reload:
     import importlib
 
-    importlib.reload(modular_renamer)
+    importlib.reload(locals()["addon"])
     del importlib
 
 from . import addon
