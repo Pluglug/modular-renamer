@@ -1,3 +1,5 @@
+# pyright: reportInvalidTypeForm=false
+
 import datetime
 import logging
 import os
@@ -16,6 +18,8 @@ from bpy.props import (
     StringProperty,
 )
 from bpy.types import Operator, PropertyGroup
+
+from ..addon import ADDON_ID
 
 # ANSIカラーコード
 COLORS = {
@@ -443,6 +447,9 @@ class AddonLoggerPreferencesMixin:
         return LoggerRegistry.get_logger(module_name)
 
 
+# TODO: アドオン固有のクラス名、ID名にする
+
+
 class LOGGER_UL_modules(bpy.types.UIList):
     """モジュール設定リスト表示"""
 
@@ -527,7 +534,7 @@ class LOGGER_OT_clear_logs(bpy.types.Operator):
 
 
 # ユーティリティ関数
-def get_logger(module_name: str) -> AddonLogger:
+def get_logger(module_name: str = ADDON_ID) -> AddonLogger:
     """モジュール用のロガーを取得（ショートカット関数）"""
     return LoggerRegistry.get_logger(module_name)
 

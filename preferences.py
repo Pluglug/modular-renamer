@@ -1,3 +1,4 @@
+# pyright: reportInvalidTypeForm=false
 import json
 
 import bpy
