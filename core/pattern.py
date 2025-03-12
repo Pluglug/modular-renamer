@@ -6,7 +6,7 @@
 from typing import Dict, List, Optional
 
 from .element_registry import ElementRegistry
-from .elements_base import INameElement
+from .element import INameElement
 
 
 class NamingPattern:

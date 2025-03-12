@@ -2,7 +2,7 @@ import random
 import re
 
 from ..core.constants import POSITION_ENUM_ITEMS
-from ..core.elements_base import BaseElement
+from ..core.element import BaseElement
 from ..utils import logging
 
 log = logging.get_logger(__name__)

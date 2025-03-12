@@ -4,7 +4,7 @@
 
 from typing import Dict, List, Type
 
-from .elements_base import INameElement
+from .element import INameElement
 
 
 class ElementRegistry:
