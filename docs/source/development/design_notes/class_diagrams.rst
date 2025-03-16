@@ -116,12 +116,11 @@
                 +order: int
                 +enabled: bool
                 +separator: str
-                +validate(obj: Any) Optional[str]
-                +is_valid() bool
-                +from_dict(data: dict) ElementConfig
             }
             class INameElement {
                 <<interface>>
+                +config_fields: Dict[str, Any]
+                +validate_config(config: ElementConfig) Optional[str]
                 +element_type: str
                 +id: str
                 +order: int
@@ -167,6 +166,8 @@
         namespace elements {
             class TextElement {
                 +items: List[str]
+                +config_fields: Dict[str, Any]
+                +validate_config(config: ElementConfig) Optional[str]
                 +parse(name: str) bool
                 +render() tuple[str, str]
                 +set_value(value: Any) void
@@ -178,6 +179,8 @@
                 +yaxis_values: List[str]
                 +zaxis_values: List[str]
                 +position_values: List[str]
+                +config_fields: Dict[str, Any]
+                +validate_config(config: ElementConfig) Optional[str]
                 +parse(name: str) bool
                 +render() tuple[str, str]
                 #_build_pattern() str
@@ -185,6 +188,8 @@
             }
             class NumericCounter {
                 +digits: int
+                +config_fields: Dict[str, Any]
+                +validate_config(config: ElementConfig) Optional[str]
                 +format_value(value: int) str
                 +gen_proposed_name(value: int) str
                 #_build_pattern() str
@@ -192,6 +197,8 @@
             }
             class BlenderCounter {
                 +digits: int
+                +config_fields: Dict[str, Any]
+                +validate_config(config: ElementConfig) Optional[str]
                 +format_value(value: int) str
                 +gen_proposed_name(value: int) str
                 #_build_pattern() str
@@ -200,6 +207,8 @@
             }
             class AlphabeticCounter {
                 +uppercase: bool
+                +config_fields: Dict[str, Any]
+                +validate_config(config: ElementConfig) Optional[str]
                 +format_value(value: int) str
                 +gen_proposed_name(value: int) str
                 #_build_pattern() str

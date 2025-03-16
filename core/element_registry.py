@@ -115,12 +115,17 @@ class ElementRegistry:
         Raises:
             KeyError: 要素タイプが登録されていない場合
         """
-        if not element_config.is_valid():
-            raise ValueError(element_config.validate(element_config))
+        if not isinstance(element_config, ElementConfig) \
+            or not hasattr(element_config, "type") \
+            or not isinstance(element_config.type, str):
+            raise TypeError(f"不正な要素設定: {element_config}")
 
         element_class = self.get_element_type(element_config.type)
         if element_class is None:
             raise KeyError(f"要素タイプが登録されていません: {element_config.type}")
+
+        if error := element_class.validate_config(element_config):
+            raise ValueError(error)
 
         return element_class(element_config)
 

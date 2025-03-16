@@ -1,8 +1,9 @@
 import random
 import re
+from typing import Optional
 
 from ..core.constants import POSITION_ENUM_ITEMS
-from ..core.element import BaseElement
+from ..core.element import BaseElement, ElementConfig
 from ..utils import logging
 
 log = logging.get_logger(__name__)
@@ -43,6 +44,22 @@ class PositionElement(BaseElement):
             self.position_values.extend(self.yaxis_values)
         if self.zaxis_enabled and self.zaxis_values:
             self.position_values.extend(self.zaxis_values)
+
+    config_fields = {
+        **BaseElement.config_fields,
+        "xaxis_type": str,
+        "xaxis_enabled": bool,
+        "yaxis_enabled": bool,
+        "zaxis_enabled": bool,
+    }
+
+    @classmethod
+    def validate_config(cls, config: ElementConfig) -> Optional[str]:
+        if error := super().validate_config(config):
+            return error
+        if not (config.xaxis_type or config.yaxis_type or config.zaxis_type):
+            return "xaxis_type, yaxis_type, zaxis_type のいずれかが必要です"
+        return None
 
     def _build_pattern(self):
         """Build pattern for position indicators with appropriate separator based on order"""

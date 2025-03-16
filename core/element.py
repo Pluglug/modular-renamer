@@ -5,7 +5,7 @@
 
 import re
 from abc import ABC, abstractmethod
-from typing import Any, Tuple, Optional
+from typing import Any, ClassVar, Dict, Tuple, Optional
 
 from ..utils import logging
 from ..utils.strings_utils import is_pascal_case, to_snake_case
@@ -37,44 +37,6 @@ class ElementConfig:
         for key, value in kwargs.items():
             setattr(self, key, value)
 
-    @classmethod
-    def validate(cls, obj: Any) -> Optional[str]:
-        """
-        ElementConfigの検証
-        """
-        if not isinstance(obj, cls):
-            return "要素設定がElementConfig型ではありません"
-
-        if not obj.type and not isinstance(obj.type, str):
-            return "要素設定にtypeがありません"
-
-        if not obj.id or not isinstance(obj.id, str):
-            return "要素設定にidがありません"
-
-        if not hasattr(obj, "order") or not isinstance(obj.order, int):
-            return "要素設定にorderがありません"
-
-        if not hasattr(obj, "enabled") or not isinstance(obj.enabled, bool):
-            return "要素設定にenabledがありません"
-
-        if not obj.separator and not isinstance(obj.separator, str):
-            return "要素設定にseparatorがありません"
-
-        return None
-
-    def is_valid(self) -> bool:
-        """
-        ElementConfigが有効かどうかを返す
-        """
-        return self.validate(self) is None
-
-    @classmethod
-    def from_dict(cls, data: dict) -> "ElementConfig":
-        """
-        dictからElementConfigを生成する
-        """
-        return cls(**data)
-
 
 class INameElement(ABC):
     """
@@ -91,6 +53,40 @@ class INameElement(ABC):
             else:
                 log.warning(f"PascalCaseではない要素名: {name}")
                 cls.element_type = name.lower()
+
+    config_fields: ClassVar[Dict[str, Any]] = {
+        "type": str,
+        "id": str,
+        "order": int,
+        "enabled": bool,
+        "separator": str,
+    }
+
+    @classmethod
+    def validate_config(cls, config: ElementConfig) -> Optional[str]:
+        """
+        設定のバリデーション
+
+        Args:
+            config: 検証する設定
+
+        Returns:
+            str: エラーメッセージ。問題なければNone
+        """
+        # ElementConfigの型チェック
+        if not isinstance(config, ElementConfig):
+            return "要素設定がElementConfig型ではありません"
+
+        # 必須フィールドの存在と型チェック
+        for field_name, field_type in cls.config_fields.items():
+            if not hasattr(config, field_name):
+                return f"必須フィールド '{field_name}' がありません"
+
+            value = getattr(config, field_name)
+            if not isinstance(value, field_type):
+                return f"フィールド '{field_name}' の型が不正です: expected {field_type}, got {type(value)}"
+
+        return None
 
     @property
     @abstractmethod
