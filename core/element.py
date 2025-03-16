@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Tuple, Optional
 
 from ..utils import logging
+from ..utils.strings_utils import is_pascal_case, to_snake_case
 
 log = logging.get_logger(__name__)
 
@@ -18,13 +19,19 @@ class ElementData:  # TODO: ElementData → ElementConfig
     """
 
     def __init__(
-        self, id: str, order: int, enabled: bool = True, separator: str = "", **kwargs
+        self,
+        type: str,
+        id: str,
+        order: int,
+        enabled: bool = True,
+        separator: str = "_",
+        **kwargs,
     ):
+        self.type = type
         self.id = id
         self.order = order
         self.enabled = enabled
         self.separator = separator
-        self.element_type = kwargs.get("element_type", "")
 
         # Store any additional properties
         for key, value in kwargs.items():
@@ -38,6 +45,9 @@ class ElementData:  # TODO: ElementData → ElementConfig
         if not isinstance(obj, cls):
             return "要素設定がElementData型ではありません"
 
+        if not obj.type and not isinstance(obj.type, str):
+            return "要素設定にtypeがありません"
+
         if not obj.id or not isinstance(obj.id, str):
             return "要素設定にidがありません"
 
@@ -49,9 +59,6 @@ class ElementData:  # TODO: ElementData → ElementConfig
 
         if not obj.separator and not isinstance(obj.separator, str):
             return "要素設定にseparatorがありません"
-
-        if not obj.element_type and not isinstance(obj.element_type, str):
-            return "要素設定にelement_typeがありません"
 
         return None
 
@@ -73,6 +80,17 @@ class INameElement(ABC):
     """
     名前要素のインターフェース
     """
+
+    @classmethod
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if not hasattr(cls, "element_type"):
+            name = cls.__name__.replace("Element", "")
+            if is_pascal_case(name):
+                cls.element_type = to_snake_case(name)
+            else:
+                log.warning(f"PascalCaseではない要素名: {name}")
+                cls.element_type = name.lower()
 
     @property
     @abstractmethod

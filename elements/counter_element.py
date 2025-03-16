@@ -1,7 +1,7 @@
 import random
 from typing import Tuple
 
-from ..core.element import BaseCounter
+from ..core.element import BaseCounter, ElementData
 from ..utils import logging, regex_utils
 
 log = logging.get_logger(__name__)
@@ -100,6 +100,8 @@ class NumericCounter(BaseCounter):
 class BlenderCounter(BaseCounter):
     """Blender's native counter (.001 format)"""
 
+    element_type = "blender_counter"
+
     def __init__(self, element_data):
         super().__init__(element_data)
         # 強制的にBlender形式に設定
@@ -130,6 +132,16 @@ class BlenderCounter(BaseCounter):
         """Generate random value for Blender counter"""
         random_value = f"{random.randint(0, 10**self.digits):0{self.digits}d}"
         return self.separator, random_value
+
+
+blender_counter_element_data = ElementData(
+    type="blender_counter",
+    id="blender_counter",
+    order=1000,
+    enabled=False,
+    separator=".",
+    digits=3,
+)
 
 
 class AlphabeticCounter(BaseCounter):

@@ -2,10 +2,11 @@
 名前要素の登録・管理・生成
 """
 
-from typing import Dict, List, Type, Optional
+import inspect
+from typing import Dict, List, Optional, Type
 
-from .element import INameElement, ElementData
 from ..utils import logging
+from .element import ElementData, INameElement
 
 log = logging.getLogger(__name__)
 
@@ -15,19 +16,43 @@ class ElementRegistry:
     設定に基づいて動的に作成できる要素タイプのレジストリ
     """
 
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance._element_types = {}
+            cls._instance._is_initialized = False
+        return cls._instance
+
     def __init__(self):
-        self._element_types: Dict[str, Type] = {}
-        self._is_initialized = False
+        pass
+
+    @classmethod
+    def get_instance(cls) -> "ElementRegistry":
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+
+    @classmethod
+    def reset_instance(cls):
+        cls._instance = None
 
     def _initialize_default_elements(self) -> None:
         """
         デフォルトの要素タイプを自動登録する
-        サブクラスを動的に検出して登録する
+        具象クラスのみを登録する
         """
         if self._is_initialized:
             return
 
         for subclass in INameElement.__subclasses__():
+
+            # 抽象基底クラスは除外
+            if subclass.__base__ is INameElement or inspect.isabstract(subclass):
+                log.debug(f"除外: {subclass.__name__}")
+                continue
+
             element_type = getattr(subclass, "element_type", None)
             if element_type:
                 try:
@@ -37,7 +62,9 @@ class ElementRegistry:
 
         self._is_initialized = True
 
-    def register_element_type(self, type_name: str, element_class: Type[INameElement]) -> None:
+    def register_element_type(
+        self, type_name: str, element_class: Type[INameElement]
+    ) -> None:
         """
         レジストリに要素タイプを登録する
 
@@ -75,12 +102,11 @@ class ElementRegistry:
 
         return self._element_types.get(type_name, None)
 
-    def create_element(self, type_name: str, element_data: ElementData) -> INameElement:
+    def create_element(self, element_data: ElementData) -> INameElement:
         """
         要素タイプと設定に基づいて要素インスタンスを作成する
 
         Args:
-            type_name: 作成する要素のタイプ
             element_data: 要素の設定データ
 
         Returns:
@@ -89,12 +115,12 @@ class ElementRegistry:
         Raises:
             KeyError: 要素タイプが登録されていない場合
         """
-        element_class = self.get_element_type(type_name)
-        if element_class is None:
-            raise KeyError(f"要素タイプが登録されていません: {type_name}")
+        if not element_data.is_valid():
+            raise ValueError(element_data.validate(element_data))
 
-        # if not element_data.is_valid():
-        #     raise ValueError(element_data.validate(element_data))
+        element_class = self.get_element_type(element_data.type)
+        if element_class is None:
+            raise KeyError(f"要素タイプが登録されていません: {element_data.type}")
 
         return element_class(element_data)
 
