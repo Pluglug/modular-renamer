@@ -2,9 +2,12 @@
 名前要素の登録・管理・生成
 """
 
-from typing import Dict, List, Type
+from typing import Dict, List, Type, Optional
 
-from .element import INameElement
+from .element import INameElement, ElementData
+from ..utils import logging
+
+log = logging.getLogger(__name__)
 
 
 class ElementRegistry:
@@ -14,29 +17,71 @@ class ElementRegistry:
 
     def __init__(self):
         self._element_types: Dict[str, Type] = {}
+        self._is_initialized = False
 
-    def register_element_type(self, type_name: str, element_class: INameElement):
+    def _initialize_default_elements(self) -> None:
+        """
+        デフォルトの要素タイプを自動登録する
+        サブクラスを動的に検出して登録する
+        """
+        if self._is_initialized:
+            return
+
+        for subclass in INameElement.__subclasses__():
+            element_type = getattr(subclass, "element_type", None)
+            if element_type:
+                try:
+                    self.register_element_type(element_type, subclass)
+                except TypeError as e:
+                    log.warning(f"要素タイプの登録に失敗: {e}")
+
+        self._is_initialized = True
+
+    def register_element_type(self, type_name: str, element_class: Type[INameElement]) -> None:
         """
         レジストリに要素タイプを登録する
 
         Args:
             type_name: この要素タイプの一意の識別子
             element_class: この要素タイプのインスタンス化に使用するクラス
+
+        Raises:
+            TypeError: クラスがINameElementを実装していない場合
+            ValueError: 既に登録済みの型名の場合
         """
         if not issubclass(element_class, INameElement):
             raise TypeError(
                 f"要素クラスはINameElementインターフェースを実装する必要があります: {element_class.__name__}"
             )
 
+        if type_name in self._element_types:
+            raise ValueError(f"要素タイプ '{type_name}' は既に登録されています")
+
         self._element_types[type_name] = element_class
 
-    def create_element(self, type_name: str, config: dict) -> INameElement:
+    def get_element_type(self, type_name: str) -> Optional[Type[INameElement]]:
+        """
+        登録された要素タイプを取得する
+        存在しない場合はデフォルト要素の初期化を試みる
+
+        Args:
+            type_name: 取得する要素タイプの名前
+
+        Returns:
+            要素クラス、存在しない場合はNone
+        """
+        if not self._is_initialized:
+            self._initialize_default_elements()
+
+        return self._element_types.get(type_name, None)
+
+    def create_element(self, type_name: str, element_data: ElementData) -> INameElement:
         """
         要素タイプと設定に基づいて要素インスタンスを作成する
 
         Args:
             type_name: 作成する要素のタイプ
-            config: 要素の設定辞書
+            element_data: 要素の設定データ
 
         Returns:
             要求された要素タイプのインスタンス
@@ -44,11 +89,14 @@ class ElementRegistry:
         Raises:
             KeyError: 要素タイプが登録されていない場合
         """
-        if type_name not in self._element_types:
+        element_class = self.get_element_type(type_name)
+        if element_class is None:
             raise KeyError(f"要素タイプが登録されていません: {type_name}")
 
-        element_class = self._element_types[type_name]
-        return element_class(config)
+        # if not element_data.is_valid():
+        #     raise ValueError(element_data.validate(element_data))
+
+        return element_class(element_data)
 
     def get_registered_types(self) -> List[str]:
         """
@@ -58,55 +106,3 @@ class ElementRegistry:
             要素タイプ名のリスト
         """
         return list(self._element_types.keys())
-
-    def validate_elements_config(self, config: List) -> List[str]:
-        """
-        要素設定のリストを検証する
-
-        Args:
-            config: 検証する要素設定のリスト
-
-        Returns:
-            エラーメッセージのリスト（有効な場合は空）
-        """
-        errors = []
-
-        if not isinstance(config, list):
-            errors.append("要素設定はリストである必要があります")
-            return errors
-
-        element_ids = set()
-
-        for idx, element_config in enumerate(config):
-            if not isinstance(element_config, dict):
-                errors.append(f"インデックス {idx} の要素は辞書である必要があります")
-                continue
-
-            if "type" not in element_config:
-                errors.append(
-                    f"インデックス {idx} の要素に 'type' フィールドがありません"
-                )
-                continue
-
-            element_type = element_config["type"]
-            if element_type not in self._element_types:
-                errors.append(
-                    f"インデックス {idx} に不明な要素タイプ '{element_type}' があります"
-                )
-                continue
-
-            if "id" not in element_config:
-                errors.append(
-                    f"インデックス {idx} の要素に 'id' フィールドがありません"
-                )
-                continue
-
-            element_id = element_config["id"]
-            if element_id in element_ids:
-                errors.append(
-                    f"インデックス {idx} に重複した要素ID '{element_id}' があります"
-                )
-            else:
-                element_ids.add(element_id)
-
-        return errors
