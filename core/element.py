@@ -5,14 +5,14 @@
 
 import re
 from abc import ABC, abstractmethod
-from typing import Any, Tuple
+from typing import Any, Tuple, Optional
 
 from ..utils import logging
 
 log = logging.get_logger(__name__)
 
 
-class ElementData:
+class ElementData:  # TODO: ElementData → ElementConfig
     """
     Data structure for element configuration
     """
@@ -29,6 +29,44 @@ class ElementData:
         # Store any additional properties
         for key, value in kwargs.items():
             setattr(self, key, value)
+
+    @classmethod
+    def validate(cls, obj: Any) -> Optional[str]:
+        """
+        ElementDataの検証
+        """
+        if not isinstance(obj, cls):
+            return "要素設定がElementData型ではありません"
+
+        if not obj.id or not isinstance(obj.id, str):
+            return "要素設定にidがありません"
+
+        if not hasattr(obj, "order") or not isinstance(obj.order, int):
+            return "要素設定にorderがありません"
+
+        if not hasattr(obj, "enabled") or not isinstance(obj.enabled, bool):
+            return "要素設定にenabledがありません"
+
+        if not obj.separator and not isinstance(obj.separator, str):
+            return "要素設定にseparatorがありません"
+
+        if not obj.element_type and not isinstance(obj.element_type, str):
+            return "要素設定にelement_typeがありません"
+
+        return None
+
+    def is_valid(self) -> bool:
+        """
+        ElementDataが有効かどうかを返す
+        """
+        return self.validate(self) is None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "ElementData":
+        """
+        dictからElementDataを生成する
+        """
+        return cls(**data)
 
 
 class INameElement(ABC):
