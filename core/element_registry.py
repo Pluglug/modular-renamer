@@ -6,7 +6,7 @@ import inspect
 from typing import Dict, List, Optional, Type
 
 from ..utils import logging
-from .element import ElementData, INameElement
+from .element import ElementConfig, INameElement
 
 log = logging.getLogger(__name__)
 
@@ -102,12 +102,12 @@ class ElementRegistry:
 
         return self._element_types.get(type_name, None)
 
-    def create_element(self, element_data: ElementData) -> INameElement:
+    def create_element(self, element_config: ElementConfig) -> INameElement:
         """
         要素タイプと設定に基づいて要素インスタンスを作成する
 
         Args:
-            element_data: 要素の設定データ
+            element_config: 要素の設定データ
 
         Returns:
             要求された要素タイプのインスタンス
@@ -115,14 +115,14 @@ class ElementRegistry:
         Raises:
             KeyError: 要素タイプが登録されていない場合
         """
-        if not element_data.is_valid():
-            raise ValueError(element_data.validate(element_data))
+        if not element_config.is_valid():
+            raise ValueError(element_config.validate(element_config))
 
-        element_class = self.get_element_type(element_data.type)
+        element_class = self.get_element_type(element_config.type)
         if element_class is None:
-            raise KeyError(f"要素タイプが登録されていません: {element_data.type}")
+            raise KeyError(f"要素タイプが登録されていません: {element_config.type}")
 
-        return element_class(element_data)
+        return element_class(element_config)
 
     def get_registered_types(self) -> List[str]:
         """

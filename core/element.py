@@ -13,7 +13,7 @@ from ..utils.strings_utils import is_pascal_case, to_snake_case
 log = logging.get_logger(__name__)
 
 
-class ElementData:  # TODO: ElementData → ElementConfig
+class ElementConfig:
     """
     Data structure for element configuration
     """
@@ -40,10 +40,10 @@ class ElementData:  # TODO: ElementData → ElementConfig
     @classmethod
     def validate(cls, obj: Any) -> Optional[str]:
         """
-        ElementDataの検証
+        ElementConfigの検証
         """
         if not isinstance(obj, cls):
-            return "要素設定がElementData型ではありません"
+            return "要素設定がElementConfig型ではありません"
 
         if not obj.type and not isinstance(obj.type, str):
             return "要素設定にtypeがありません"
@@ -64,14 +64,14 @@ class ElementData:  # TODO: ElementData → ElementConfig
 
     def is_valid(self) -> bool:
         """
-        ElementDataが有効かどうかを返す
+        ElementConfigが有効かどうかを返す
         """
         return self.validate(self) is None
 
     @classmethod
-    def from_dict(cls, data: dict) -> "ElementData":
+    def from_dict(cls, data: dict) -> "ElementConfig":
         """
-        dictからElementDataを生成する
+        dictからElementConfigを生成する
         """
         return cls(**data)
 
@@ -160,11 +160,11 @@ class BaseElement(INameElement, ABC):
     オペレーター実行時には standby により値だけをリセットする。
     """
 
-    def __init__(self, element_data: ElementData):
-        self._id = element_data.get("id")
-        self._order = element_data.get("order")
-        self._enabled = element_data.get("enabled")
-        self._separator = element_data.get("separator")
+    def __init__(self, element_config: ElementConfig):
+        self._id = element_config.get("id")
+        self._order = element_config.get("order")
+        self._enabled = element_config.get("enabled")
+        self._separator = element_config.get("separator")
 
         self._value = None
         self._pattern = None
@@ -286,8 +286,8 @@ class ICounter(ABC):
 class BaseCounter(BaseElement, ICounter):
     """Base implementation for all counters"""
 
-    def __init__(self, element_data: ElementData):
-        super().__init__(element_data)
+    def __init__(self, element_config: ElementConfig):
+        super().__init__(element_config)
         self._value_int = None
         self.forward = None
         self.backward = None

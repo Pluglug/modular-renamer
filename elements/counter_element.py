@@ -1,7 +1,7 @@
 import random
 from typing import Tuple
 
-from ..core.element import BaseCounter, ElementData
+from ..core.element import BaseCounter, ElementConfig
 from ..utils import logging, regex_utils
 
 log = logging.get_logger(__name__)
@@ -12,10 +12,10 @@ log = logging.get_logger(__name__)
 #     固定桁数のカウンター要素
 #     """
 
-#     def __init__(self, element_data):
-#         super().__init__(element_data)
+#     def __init__(self, element_config):
+#         super().__init__(element_config)
 #         # 'custom' or 'blender'
-#         self.counter_type = element_data.get("counter_type")
+#         self.counter_type = element_config.get("counter_type")
 #         if self.counter_type == "blender":
 
 #             self._order = 1000
@@ -23,7 +23,7 @@ log = logging.get_logger(__name__)
 #             self._separator = "."
 #             self.digits = 3
 #         else:
-#             self.digits = element_data.get("digits", 2)
+#             self.digits = element_config.get("digits", 2)
 
 #         self.forward = None
 #         self.backward = None
@@ -73,9 +73,9 @@ log = logging.get_logger(__name__)
 class NumericCounter(BaseCounter):
     """Simple numeric counter with configurable digits"""
 
-    def __init__(self, element_data):
-        super().__init__(element_data)
-        self.digits = element_data.get("digits", 2)
+    def __init__(self, element_config):
+        super().__init__(element_config)
+        self.digits = element_config.get("digits", 2)
 
     @regex_utils.add_separator_by_order
     @regex_utils.add_named_capture_group
@@ -102,8 +102,8 @@ class BlenderCounter(BaseCounter):
 
     element_type = "blender_counter"
 
-    def __init__(self, element_data):
-        super().__init__(element_data)
+    def __init__(self, element_config):
+        super().__init__(element_config)
         # 強制的にBlender形式に設定
         self._order = 1000  # 絶対に最後にマッチするようにする
         self._enabled = False
@@ -134,7 +134,7 @@ class BlenderCounter(BaseCounter):
         return self.separator, random_value
 
 
-blender_counter_element_data = ElementData(
+blender_counter_element_config = ElementConfig(
     type="blender_counter",
     id="blender_counter",
     order=1000,
@@ -147,9 +147,9 @@ blender_counter_element_data = ElementData(
 class AlphabeticCounter(BaseCounter):
     """Alphabetic counter (A, B, C... AA, AB...)"""
 
-    def __init__(self, element_data):
-        super().__init__(element_data)
-        self.uppercase = element_data.get("uppercase", True)
+    def __init__(self, element_config):
+        super().__init__(element_config)
+        self.uppercase = element_config.get("uppercase", True)
 
     @regex_utils.add_separator_by_order
     @regex_utils.add_named_capture_group

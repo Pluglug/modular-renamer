@@ -9,7 +9,7 @@ classDiagram
             #_resolve_with_force(target: IRenameTarget, name: str, namespace: INamespace) str
             #_find_conflicting_targets(target: IRenameTarget, name: str) List[...]
         }
-        class ElementData {
+        class ElementConfig {
             <<interface>>
             #__init__(id: str, order: int, enabled: bool, separator: str)
         }
@@ -28,7 +28,7 @@ classDiagram
         }
         class BaseElement {
             <<abstract>>
-            #__init__(element_data: ElementData)
+            #__init__(element_config: ElementConfig)
             +id() str
             +order() int
             +enabled() bool
@@ -52,7 +52,7 @@ classDiagram
         }
         class BaseCounter {
             <<abstract>>
-            #__init__(element_data: ElementData)
+            #__init__(element_config: ElementConfig)
             +value_int() int
             +value_int(value: int) None
             +set_value(new_value: Any) None
@@ -134,14 +134,14 @@ classDiagram
     }
     namespace elements {
         class NumericCounter {
-            #__init__(element_data)
+            #__init__(element_config)
             #_build_pattern() str
             +format_value(value: int) str
             +gen_proposed_name(value: int) str
             +generate_random_value() Tuple[...]
         }
         class BlenderCounter {
-            #__init__(element_data)
+            #__init__(element_config)
             #_build_pattern() str
             #_parse_value(value_str: str) int
             +format_value(value: int) str
@@ -149,7 +149,7 @@ classDiagram
             +generate_random_value() Tuple[...]
         }
         class AlphabeticCounter {
-            #__init__(element_data)
+            #__init__(element_config)
             #_build_pattern() str
             #_parse_value(value_str: str) int
             +format_value(value: int) str
@@ -157,12 +157,12 @@ classDiagram
             +generate_random_value() Tuple[...]
         }
         class PositionElement {
-            #__init__(element_data)
+            #__init__(element_config)
             #_build_pattern()
             +generate_random_value()
         }
         class TextElement {
-            #__init__(element_data)
+            #__init__(element_config)
             #_build_pattern() str
             +generate_random_value() Tuple[...]
         }

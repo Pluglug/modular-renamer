@@ -110,8 +110,19 @@
 
     classDiagram
         namespace core_elements {
+            class ElementConfig {
+                +type: str
+                +id: str
+                +order: int
+                +enabled: bool
+                +separator: str
+                +validate(obj: Any) Optional[str]
+                +is_valid() bool
+                +from_dict(data: dict) ElementConfig
+            }
             class INameElement {
                 <<interface>>
+                +element_type: str
                 +id: str
                 +order: int
                 +enabled: bool
@@ -120,19 +131,37 @@
                 +parse(name: str) bool
                 +render() tuple[str, str]
                 +set_value(value: Any) void
+                +standby() void
+                +initialize_cache() void
             }
             class BaseElement {
                 <<abstract>>
                 #_value: Any
                 #_pattern: Pattern
-                +id: str
-                +order: int
-                +enabled: bool
-                +separator: str
+                +cache_invalidated: bool
                 +parse(name: str) bool
                 +render() tuple[str, str]
                 +set_value(value: Any) void
-                #_build_pattern() Pattern
+                +standby() void
+                +initialize_cache() void
+                #_build_pattern() str
+                #generate_random_value() str
+            }
+            class ICounter {
+                <<interface>>
+                +value_int: int
+                +increment() void
+                +format_value(value: int) str
+                +gen_proposed_name(value: int) str
+            }
+            class BaseCounter {
+                <<abstract>>
+                #_value_int: int
+                +forward: str
+                +backward: str
+                +increment() void
+                +format_value(value: int) str
+                #_parse_value(value_str: str) int
             }
         }
         namespace elements {
@@ -141,38 +170,55 @@
                 +parse(name: str) bool
                 +render() tuple[str, str]
                 +set_value(value: Any) void
-                #_build_pattern() Pattern
-            }
-            class CounterElement {
-                +digits: int
-                +parse(name: str) bool
-                +render() tuple[str, str]
-                +set_value(value: Any) void
-                +increment() void
-                #_build_pattern() Pattern
+                #_build_pattern() str
+                #generate_random_value() tuple[str, str]
             }
             class PositionElement {
-                +items: List[str]
+                +xaxis_values: List[str]
+                +yaxis_values: List[str]
+                +zaxis_values: List[str]
+                +position_values: List[str]
                 +parse(name: str) bool
                 +render() tuple[str, str]
-                +set_value(value: Any) void
-                #_build_pattern() Pattern
+                #_build_pattern() str
+                #generate_random_value() tuple[str, str]
             }
-            class BlenderCounterElement {
-                +parse(name: str) bool
-                +render() tuple[str, str]
-                +set_value(value: Any) void
-                +transfer_to(counter: CounterElement) void
-                #_build_pattern() Pattern
+            class NumericCounter {
+                +digits: int
+                +format_value(value: int) str
+                +gen_proposed_name(value: int) str
+                #_build_pattern() str
+                #generate_random_value() tuple[str, str]
+            }
+            class BlenderCounter {
+                +digits: int
+                +format_value(value: int) str
+                +gen_proposed_name(value: int) str
+                #_build_pattern() str
+                #_parse_value(value_str: str) int
+                #generate_random_value() tuple[str, str]
+            }
+            class AlphabeticCounter {
+                +uppercase: bool
+                +format_value(value: int) str
+                +gen_proposed_name(value: int) str
+                #_build_pattern() str
+                #_parse_value(value_str: str) int
+                #generate_random_value() tuple[str, str]
             }
         }
         namespace core {
             class ElementRegistry {
                 -_element_types: Dict[str, Type]
+                -_instance: ElementRegistry
+                -_is_initialized: bool
+                +get_instance() ElementRegistry
+                +reset_instance() void
                 +register_element_type(type: str, class: Type) void
-                +create_element(type: str, config: dict) INameElement
+                +get_element_type(type_name: str) Optional[Type[INameElement]]
+                +create_element(element_config: ElementConfig) INameElement
                 +get_registered_types() List[str]
-                +validate_elements_config(config: List) List[str]
+                -_initialize_default_elements() void
             }
             class NamingPattern {
                 +name: str
@@ -182,7 +228,10 @@
                 +update_elements(updates: Dict) void
                 +render_name() str
                 +validate() List[str]
-                -_load_elements(config: List) void
+                +get_element_by_id(element_id: str) INameElement
+                +gen_test_names(random: bool, num_cases: int) List[str]
+                -_load_elements(config: List, element_registry: ElementRegistry) void
+                -_notify_elements_changed() void
             }
             class PatternRegistry {
                 -patterns: Dict[str, Dict[str, NamingPattern]]
@@ -362,9 +411,12 @@
         }
         INameElement <|-- BaseElement
         BaseElement <|-- TextElement
-        BaseElement <|-- CounterElement
         BaseElement <|-- PositionElement
-        BaseElement <|-- BlenderCounterElement
+        BaseElement <|-- BaseCounter
+        ICounter <|-- BaseCounter
+        BaseCounter <|-- NumericCounter
+        BaseCounter <|-- BlenderCounter
+        BaseCounter <|-- AlphabeticCounter
         IRenameTarget <|-- ObjectRenameTarget
         IRenameTarget <|-- PoseBoneRenameTarget
         IRenameTarget <|-- MaterialRenameTarget
@@ -375,7 +427,9 @@
         CollectionStrategy <|-- SelectedPoseBonesStrategy
         CollectionStrategy <|-- ModifiersStrategy
         ElementRegistry --> INameElement : creates >
+        ElementRegistry --> ElementConfig : uses >
         NamingPattern --> INameElement : contains 1..*
+        NamingPattern --> ElementConfig : configures >
         PatternRegistry --> NamingPattern : manages *
         NamespaceManager --> INamespace : manages *
         TargetCollector --> CollectionStrategy : uses *

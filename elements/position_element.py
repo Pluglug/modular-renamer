@@ -13,24 +13,24 @@ class PositionElement(BaseElement):
     位置要素
     """
 
-    def __init__(self, element_data):
-        super().__init__(element_data)
+    def __init__(self, element_config):
+        super().__init__(element_config)
 
         # X軸の値を取得
-        self.xaxis_type = element_data.xaxis_type
-        self.xaxis_enabled = element_data.xaxis_enabled
+        self.xaxis_type = element_config.xaxis_type
+        self.xaxis_enabled = element_config.xaxis_enabled
         self.xaxis_values = (
             self.xaxis_type.split("|") if self.xaxis_type and self.xaxis_enabled else []
         )
 
         # Y軸の値を取得
-        self.yaxis_enabled = element_data.yaxis_enabled
+        self.yaxis_enabled = element_config.yaxis_enabled
         self.yaxis_values = (
             POSITION_ENUM_ITEMS["YAXIS"][0][0].split("|") if self.yaxis_enabled else []
         )
 
         # Z軸の値を取得
-        self.zaxis_enabled = element_data.zaxis_enabled
+        self.zaxis_enabled = element_config.zaxis_enabled
         self.zaxis_values = (
             POSITION_ENUM_ITEMS["ZAXIS"][0][0].split("|") if self.zaxis_enabled else []
         )

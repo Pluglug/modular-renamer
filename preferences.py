@@ -248,7 +248,7 @@ class ModularRenamerPreferences(
             }
 
             for element in pattern.elements:
-                element_data = {
+                element_config = {
                     "id": element.id,
                     "display_name": element.display_name,
                     "type": element.element_type,
@@ -259,19 +259,19 @@ class ModularRenamerPreferences(
 
                 # Add type-specific properties
                 if element.element_type == "text":
-                    element_data["items"] = [item.name for item in element.items]
+                    element_config["items"] = [item.name for item in element.items]
                 elif element.element_type == "counter":
-                    element_data["padding"] = element.padding
+                    element_config["padding"] = element.padding
                 elif element.element_type == "regex":
-                    element_data["pattern"] = element.pattern
+                    element_config["pattern"] = element.pattern
                 elif element.element_type == "date":
-                    element_data["date_format"] = element.date_format
+                    element_config["date_format"] = element.date_format
                 elif element.element_type == "free_text":
-                    element_data["default_text"] = element.default_text
+                    element_config["default_text"] = element.default_text
                 elif element.element_type == "position":
-                    element_data["position_type"] = element.position_type
+                    element_config["position_type"] = element.position_type
 
-                pattern_data["elements"].append(element_data)
+                pattern_data["elements"].append(element_config)
 
             data.append(pattern_data)
 
@@ -296,43 +296,43 @@ class ModularRenamerPreferences(
                     pattern_data["object_type"],
                 )
 
-                for element_data in pattern_data["elements"]:
+                for element_config in pattern_data["elements"]:
                     element = pattern.add_element(
-                        element_data["id"],
-                        element_data["type"],
-                        element_data["display_name"],
+                        element_config["id"],
+                        element_config["type"],
+                        element_config["display_name"],
                     )
 
-                    element.enabled = element_data.get("enabled", True)
-                    element.order = element_data.get("order", 0)
-                    element.separator = element_data.get("separator", "_")
+                    element.enabled = element_config.get("enabled", True)
+                    element.order = element_config.get("order", 0)
+                    element.separator = element_config.get("separator", "_")
 
                     # Set type-specific properties
-                    if element.element_type == "text" and "items" in element_data:
-                        for item_name in element_data["items"]:
+                    if element.element_type == "text" and "items" in element_config:
+                        for item_name in element_config["items"]:
                             item = element.items.add()
                             item.name = item_name
 
-                    if element.element_type == "counter" and "padding" in element_data:
-                        element.padding = element_data["padding"]
+                    if element.element_type == "counter" and "padding" in element_config:
+                        element.padding = element_config["padding"]
 
-                    if element.element_type == "regex" and "pattern" in element_data:
-                        element.pattern = element_data["pattern"]
+                    if element.element_type == "regex" and "pattern" in element_config:
+                        element.pattern = element_config["pattern"]
 
-                    if element.element_type == "date" and "date_format" in element_data:
-                        element.date_format = element_data["date_format"]
+                    if element.element_type == "date" and "date_format" in element_config:
+                        element.date_format = element_config["date_format"]
 
                     if (
                         element.element_type == "free_text"
-                        and "default_text" in element_data
+                        and "default_text" in element_config
                     ):
-                        element.default_text = element_data["default_text"]
+                        element.default_text = element_config["default_text"]
 
                     if (
                         element.element_type == "position"
-                        and "position_type" in element_data
+                        and "position_type" in element_config
                     ):
-                        element.position_type = element_data["position_type"]
+                        element.position_type = element_config["position_type"]
 
             return True
 

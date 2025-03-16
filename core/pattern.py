@@ -7,9 +7,9 @@ import itertools
 import random
 from typing import Dict, List, Optional
 
-from ..elements.counter_element import blender_counter_element_data
+from ..elements.counter_element import blender_counter_element_config
 from ..utils.logging import get_logger
-from .element import ElementData, INameElement
+from .element import ElementConfig, INameElement
 from .element_registry import ElementRegistry
 
 log = get_logger(__name__)
@@ -24,7 +24,7 @@ class NamingPattern:
         self,
         name: str,
         target_type: str,
-        elements_config: List[ElementData],
+        elements_config: List[ElementConfig],
         element_registry: ElementRegistry,
     ):
         """
@@ -43,7 +43,7 @@ class NamingPattern:
         self._load_elements(elements_config, element_registry)
 
     def _load_elements(
-        self, elements_config: List[ElementData], element_registry: ElementRegistry
+        self, elements_config: List[ElementConfig], element_registry: ElementRegistry
     ) -> None:
         """
         設定から要素を読み込む
@@ -61,7 +61,7 @@ class NamingPattern:
 
         # かならずBlenderCounterを追加
         if "blender_counter" not in [e.element_type for e in self.elements]:
-            element = element_registry.create_element(blender_counter_element_data)
+            element = element_registry.create_element(blender_counter_element_config)
             self.elements.append(element)
 
         # 要素を順序でソート
