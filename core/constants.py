@@ -14,11 +14,16 @@ SEPARATOR_ITEMS = [
 
 ELEMENT_TYPE_ITEMS = [
     ("text", "Text", "Normal text with predefined options"),
-    ("free_text", "Free Text", "Any text input"),
+    # ("free_text", "Free Text", "Any text input"),  # 未実装
     ("position", "Position", "Positional indicators (L/R, Top/Bot, etc)"),
-    ("counter", "Counter", "Numerical counter with formatting options"),
-    ("date", "Date", "Date in various formats"),
-    ("regex", "RegEx", "Custom regular expression pattern"),
+    ("numeric_counter", "Numeric Counter", "Numerical counter with formatting options"),
+    (
+        "alphabetic_counter",
+        "Alphabetic Counter",
+        "Alphabetic counter with formatting options",
+    ),
+    # ("date", "Date", "Date in various formats"),  # 未実装
+    # ("regex", "RegEx", "Custom regular expression pattern"),  # 未実装
 ]
 
 # Position enum items organized by axis

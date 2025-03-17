@@ -260,7 +260,7 @@ class ModularRenamerPreferences(
                 # Add type-specific properties
                 if element.element_type == "text":
                     element_config["items"] = [item.name for item in element.items]
-                elif element.element_type == "counter":
+                elif element.element_type == "numeric_counter":
                     element_config["padding"] = element.padding
                 elif element.element_type == "regex":
                     element_config["pattern"] = element.pattern
@@ -313,13 +313,19 @@ class ModularRenamerPreferences(
                             item = element.items.add()
                             item.name = item_name
 
-                    if element.element_type == "counter" and "padding" in element_config:
+                    if (
+                        element.element_type == "numeric_counter"
+                        and "padding" in element_config
+                    ):
                         element.padding = element_config["padding"]
 
                     if element.element_type == "regex" and "pattern" in element_config:
                         element.pattern = element_config["pattern"]
 
-                    if element.element_type == "date" and "date_format" in element_config:
+                    if (
+                        element.element_type == "date"
+                        and "date_format" in element_config
+                    ):
                         element.date_format = element_config["date_format"]
 
                     if (
@@ -408,7 +414,7 @@ class ModularRenamerPreferences(
             item.name = name
 
         # Add counter element
-        counter = bone_pattern.add_element("counter", "counter", "Counter")
+        counter = bone_pattern.add_element("counter", "numeric_counter", "Counter")
         counter.padding = 2
         counter.separator = "-"
 
