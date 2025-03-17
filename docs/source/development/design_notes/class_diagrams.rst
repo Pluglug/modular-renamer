@@ -121,6 +121,7 @@
                 <<interface>>
                 +config_fields: Dict[str, Any]
                 +validate_config(config: ElementConfig) Optional[str]
+                +get_config_names() Set[str]
                 +element_type: str
                 +id: str
                 +order: int
@@ -231,7 +232,6 @@
             }
             class NamingPattern {
                 +name: str
-                +target_type: str
                 +elements: List[INameElement]
                 +parse_name(name: str) void
                 +update_elements(updates: Dict) void
@@ -243,12 +243,21 @@
                 -_notify_elements_changed() void
             }
             class PatternRegistry {
-                -patterns: Dict[str, Dict[str, NamingPattern]]
+                -_patterns: Dict[str, NamingPattern]
                 +register_pattern(pattern: NamingPattern) void
-                +get_pattern(type: str, name: str) NamingPattern
-                +get_patterns_for_type(type: str) List[NamingPattern]
+                +get_pattern(name: str) Optional[NamingPattern]
+                +get_all_patterns() List[NamingPattern]
+                +remove_pattern(name: str) void
+                +clear() void
+            }
+            class PatternConfigManager {
+                -_element_registry: ElementRegistry
+                -_pattern_registry: PatternRegistry
+                +create_pattern(name: str, elements_data: List[Dict]) NamingPattern
                 +load_from_file(path: str) void
-                +save_to_file(path: str) void
+                +save_to_file(file_path: str, pattern_name: str) void
+                +save_all_patterns(file_path: str) void
+                -_convert_to_element_config(element_data: Dict) ElementConfig
             }
             class IRenameTarget {
                 <<interface>>
@@ -440,6 +449,9 @@
         NamingPattern --> INameElement : contains 1..*
         NamingPattern --> ElementConfig : configures >
         PatternRegistry --> NamingPattern : manages *
+        PatternConfigManager --> PatternRegistry : uses 1
+        PatternConfigManager --> ElementRegistry : uses 1
+        PatternConfigManager --> ElementConfig : creates >
         NamespaceManager --> INamespace : manages *
         TargetCollector --> CollectionStrategy : uses *
         TargetCollector --> IRenameTarget : collects *

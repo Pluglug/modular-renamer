@@ -88,6 +88,13 @@ class INameElement(ABC):
 
         return None
 
+    @classmethod
+    def get_config_names(cls) -> Set[str]:
+        """
+        設定フィールド名のセットを返す
+        """
+        return set(cls.config_fields.keys())
+
     @property
     @abstractmethod
     def id(self) -> str:

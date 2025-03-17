@@ -32,12 +32,10 @@ class NamingPattern:
 
         Args:
             name: パターンの名前
-            target_type: このパターンの対象タイプ（オブジェクト、ボーン、マテリアルなど）
             elements_config: 各要素の設定リスト
             element_registry: 要素を作成するためのElementRegistry
         """
         self.name = name
-        self.target_type = target_type
         self.elements: List[INameElement] = []
 
         self._load_elements(elements_config, element_registry)
