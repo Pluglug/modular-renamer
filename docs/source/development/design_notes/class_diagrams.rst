@@ -3,122 +3,145 @@
 
 
 .. mermaid::
-    :caption: リネーム処理フロー
+    :caption: 順次処理型一括リネーム処理フロー
     :zoom:
 
     sequenceDiagram
         participant ユーザー
+        participant RENAME_OT_execute
         participant RenameService
+        participant TargetCollector
+        participant BatchRenameOperation
+        participant PatternRegistry
         participant NamingPattern
-        participant ElementRegistry
-        participant BaseElement
-        participant CounterElement
         participant ConflictResolver
         participant NamespaceManager
         
-        ユーザー->>RenameService: リネーム要求
-        RenameService->>NamingPattern: パターン取得
-        NamingPattern->>ElementRegistry: 要素生成
+        ユーザー->>RENAME_OT_execute: リネーム実行操作
+        RENAME_OT_execute->>RenameService: prepare_batch()
         
-        ElementRegistry->>BaseElement: テキスト要素生成
-        BaseElement-->>ElementRegistry: 要素返却
+        RenameService->>PatternRegistry: パターン取得
+        PatternRegistry-->>RenameService: NamingPattern返却
         
-        ElementRegistry->>CounterElement: カウンター要素生成
-        CounterElement-->>ElementRegistry: 要素返却
+        RenameService->>TargetCollector: ターゲット収集
+        TargetCollector->>TargetCollector: コンテキストに基づく収集
+        TargetCollector-->>RenameService: ターゲットリスト返却
         
-        ElementRegistry-->>NamingPattern: 全要素返却
-        NamingPattern-->>RenameService: 提案名生成
+        RenameService->>BatchRenameOperation: 新しいバッチ操作作成
+        RenameService-->>RENAME_OT_execute: バッチ操作返却
         
-        RenameService->>ConflictResolver: 重複チェック依頼
-        ConflictResolver->>NamespaceManager: 名前空間取得
-        NamespaceManager-->>ConflictResolver: 名前空間返却
+        RENAME_OT_execute->>RenameService: execute_batch()
         
-        alt 重複あり
-            ConflictResolver->>CounterElement: カウンター値更新
-            CounterElement->>CounterElement: increment()
-            CounterElement-->>ConflictResolver: 新しい値
+        loop 各ターゲットについて
+            RenameService->>NamingPattern: 提案名生成
+            NamingPattern-->>RenameService: 提案名返却
             
-            loop 重複が解消されるまで
-                ConflictResolver->>NamespaceManager: 重複チェック
-                NamespaceManager-->>ConflictResolver: 結果
+            RenameService->>ConflictResolver: 重複チェック・解決依頼
+            ConflictResolver->>NamespaceManager: 名前空間取得
+            NamespaceManager-->>ConflictResolver: 名前空間返却
+            
+            opt 重複あり
+                ConflictResolver->>NamingPattern: カウンター要素取得
+                NamingPattern->>NamingPattern: カウンター要素をincrement()
+                NamingPattern-->>ConflictResolver: 更新された名前返却
                 
-                opt まだ重複している場合
-                    ConflictResolver->>CounterElement: 再度increment()
-                    CounterElement-->>ConflictResolver: 新しい値
+                loop 重複が解消されるまで
+                    ConflictResolver->>NamespaceManager: 重複再チェック
+                    NamespaceManager-->>ConflictResolver: 結果返却
+                    
+                    opt まだ重複している場合
+                        ConflictResolver->>NamingPattern: カウンター要素を再度increment()
+                        NamingPattern-->>ConflictResolver: 更新された名前返却
+                    end
                 end
             end
             
-            ConflictResolver-->>RenameService: 解決済み名前
-        else 重複なし
-            ConflictResolver-->>RenameService: 提案名をそのまま返却
+            ConflictResolver->>NamespaceManager: シミュレーション名前空間を即時更新
+            NamespaceManager-->>ConflictResolver: 更新完了
+            ConflictResolver-->>RenameService: 解決済み名前返却
+            
+            RenameService->>RenameService: リネーム結果を記録（実際のBlenderオブジェクトはまだ更新しない）
         end
         
-        RenameService->>RenameService: 名前変更を実行
-        RenameService->>ConflictResolver: 名前空間の更新依頼
-        ConflictResolver->>NamespaceManager: 名前空間更新
-        NamespaceManager-->>ConflictResolver: 更新完了
-        ConflictResolver-->>RenameService: 更新完了
+        loop 名前適用処理
+            RenameService->>IRenameTarget: 名前設定
+            IRenameTarget-->>RenameService: 適用完了
+            
+            RenameService->>ConflictResolver: 実際の名前空間更新
+            ConflictResolver->>NamespaceManager: 更新実行
+            NamespaceManager-->>ConflictResolver: 更新完了
+            ConflictResolver-->>RenameService: 更新完了
+        end
         
-        RenameService-->>ユーザー: 最終結果表示
+        RenameService->>BatchRenameOperation: 結果を保存
+        RenameService-->>RENAME_OT_execute: 実行結果返却
+        RENAME_OT_execute-->>ユーザー: 完了通知
 
 
 .. mermaid::
-    :caption: コレクターおよび名前空間のクラス図
+    :caption: 名前空間管理と競合解決フロー
     :zoom:
 
     sequenceDiagram
-        participant ユーザー
         participant RenameService
-        participant TargetCollector
-        participant RenameTarget
         participant ConflictResolver
         participant NamespaceManager
         participant Namespace
+        participant IRenameTarget
+        participant NamingPattern
         
-        ユーザー->>RenameService: リネーム要求（対象選択）
-        RenameService->>TargetCollector: ターゲット収集依頼
+        RenameService->>ConflictResolver: resolve_name_conflict(target, pattern, proposed_name, strategy)
+        ConflictResolver->>IRenameTarget: 名前空間キー取得
+        IRenameTarget-->>ConflictResolver: キー返却（例：オブジェクト種別）
         
-        TargetCollector->>TargetCollector: 選択戦略に基づく収集
-        TargetCollector-->>RenameService: RenameTarget配列返却
+        ConflictResolver->>NamespaceManager: 名前空間取得
+        NamespaceManager->>Namespace: 特定のNamespace取得
+        Namespace-->>NamespaceManager: Namespace返却
+        NamespaceManager-->>ConflictResolver: Namespace返却
         
-        loop 各ターゲットについて
-            RenameService->>RenameTarget: 現在の名前取得
-            RenameTarget-->>RenameService: 名前返却
-            
-            RenameService->>RenameService: 提案名生成（前の図の処理）
-            
-            RenameService->>ConflictResolver: 重複チェック
-            ConflictResolver->>RenameTarget: 名前空間キー取得
-            RenameTarget-->>ConflictResolver: キー返却（例：オブジェクト種別）
-            
-            ConflictResolver->>NamespaceManager: 名前空間取得
-            NamespaceManager->>Namespace: 特定のNamespace取得
-            Namespace-->>NamespaceManager: Namespace返却
-            NamespaceManager-->>ConflictResolver: Namespace返却
-            
-            ConflictResolver->>Namespace: 名前の重複チェック
-            Namespace-->>ConflictResolver: 重複状態返却
-            
-            alt 重複解決後
-                RenameService->>RenameTarget: 名前変更実行
-                RenameTarget-->>RenameService: 変更完了
+        ConflictResolver->>Namespace: 名前の重複チェック
+        Namespace-->>ConflictResolver: 重複状態返却
+        
+        alt 重複あり
+            alt 戦略 = COUNTER
+                ConflictResolver->>NamingPattern: カウンター要素取得
+                NamingPattern->>NamingPattern: increment()で名前更新
+                NamingPattern-->>ConflictResolver: 更新名返却
                 
-                RenameService->>ConflictResolver: 名前空間更新依頼
-                ConflictResolver->>NamespaceManager: 名前空間取得
-                NamespaceManager-->>ConflictResolver: 名前空間返却
-                ConflictResolver->>Namespace: 名前空間更新
-                Namespace-->>ConflictResolver: 更新完了
-                ConflictResolver-->>RenameService: 更新完了
+                loop 重複が解消されるまで
+                    ConflictResolver->>Namespace: 再度重複チェック
+                    Namespace-->>ConflictResolver: 重複状態返却
+                    
+                    opt まだ重複している
+                        ConflictResolver->>NamingPattern: 再度increment()
+                        NamingPattern-->>ConflictResolver: 更新名返却
+                    end
+                end
+            else 戦略 = FORCE
+                Note over ConflictResolver: 重複を無視
             end
         end
         
-        RenameService-->>ユーザー: 全ターゲットのリネーム結果
-
+        ConflictResolver->>NamespaceManager: シミュレーション名前空間を更新
+        NamespaceManager->>Namespace: 更新（実際のオブジェクトはまだ変更なし）
+        Namespace-->>NamespaceManager: 更新完了
+        NamespaceManager-->>ConflictResolver: 完了
+        
+        ConflictResolver-->>RenameService: 解決済み名前返却
+        
+        Note over RenameService: すべてのターゲットの名前解決後
+        
+        RenameService->>ConflictResolver: apply_namespace_update(target, old_name, new_name)
+        ConflictResolver->>NamespaceManager: 実際の名前空間更新
+        NamespaceManager->>Namespace: 更新
+        Namespace-->>NamespaceManager: 更新完了
+        NamespaceManager-->>ConflictResolver: 完了
+        ConflictResolver-->>RenameService: 更新完了
 
 
 .. mermaid::
     :config: {"flowchart": {"nodeSpacing": 50, "rankSpacing": 70}}
-    :caption: システムアーキテクチャ図（関係性修正版）
+    :caption: システムアーキテクチャ図（一括リネーム中心）
     :zoom:
 
     classDiagram
@@ -317,39 +340,44 @@
                 -resolved_conflicts: List[Dict]
                 +STRATEGY_COUNTER: str
                 +STRATEGY_FORCE: str
-                +resolve(target: IRenameTarget, name: str, strategy: str) str
-                +update_namespace(target: IRenameTarget, name: str) void
-                +process_batch(targets: List[IRenameTarget], proposed_names: Dict[str, str], strategy: str) Dict[str, str]
-                -_resolve_with_counter(target: IRenameTarget, name: str, namespace: INamespace) str
-                -_resolve_with_force(target: IRenameTarget, name: str, namespace: INamespace) str
+                +resolve_name_conflict(target: IRenameTarget, pattern: NamingPattern, proposed_name: str, strategy: str) str
+                +simulate_namespace_update(target: IRenameTarget, old_name: str, new_name: str) void
+                +apply_namespace_update(target: IRenameTarget, old_name: str, new_name: str) void
+                +reset_simulation() void
+                -_get_namespace(target: IRenameTarget) INamespace
+                -_is_name_in_conflict(name: str, namespace: INamespace) bool
+                -_resolve_with_counter(pattern: NamingPattern, name: str, namespace: INamespace) str
+                -_resolve_with_force(name: str) str
                 -_find_conflicting_targets(target: IRenameTarget, name: str) List[IRenameTarget]
             }
-            class RenameContext {
+            class RenameResult {
                 +target: IRenameTarget
-                +pattern: NamingPattern
                 +original_name: str
                 +proposed_name: str
                 +final_name: str
-                +conflict_resolution: Any
+                +success: bool
                 +message: str
             }
-            class BatchRenameContext {
+            class BatchRenameOperation {
                 +targets: List[IRenameTarget]
                 +pattern: NamingPattern
                 +element_updates: Dict
                 +strategy: str
-                +results: List[RenameContext]
-                +messages: List[str]
+                +results: List[RenameResult]
+                +pending_results: Dict[str, RenameResult]
+                +has_conflicts: bool
+                +get_result_summary() str
             }
             class RenameService {
                 -pattern_registry: PatternRegistry
                 -conflict_resolver: ConflictResolver
                 -target_collector: TargetCollector
-                +prepare(target: IRenameTarget, pattern: str) RenameContext
-                +update_elements(context: RenameContext, updates: Dict) RenameContext
-                +execute(context: RenameContext, strategy: str) bool
-                +prepare_batch(target_type: str, pattern_name: str, context: Context) BatchRenameContext
-                +execute_batch(batch_context: BatchRenameContext) bool
+                +prepare_batch(target_type: str, pattern_name: str, context: Context) BatchRenameOperation
+                +apply_element_updates(batch_op: BatchRenameOperation, updates: Dict) void
+                +execute_batch(batch_op: BatchRenameOperation) List[RenameResult]
+                +preview_batch(batch_op: BatchRenameOperation) List[RenameResult]
+                -_process_target(target: IRenameTarget, pattern: NamingPattern, strategy: str) RenameResult
+                -_apply_results(batch_op: BatchRenameOperation) void
             }
         }
         namespace targets {
@@ -482,17 +510,16 @@
         TargetCollector --> CollectionStrategy : uses *
         TargetCollector --> IRenameTarget : collects *
         ConflictResolver --> NamespaceManager : uses 1
-        ConflictResolver --> IRenameTarget : resolves for 1..* 
-        RenameContext --> IRenameTarget : references 1
-        RenameContext --> NamingPattern : uses 1
-        BatchRenameContext --> IRenameTarget : contains *
-        BatchRenameContext --> RenameContext : produces *
-        BatchRenameContext --> NamingPattern : uses 1
+        ConflictResolver --> IRenameTarget : resolves for * 
+        RenameResult --> IRenameTarget : references 1
+        BatchRenameOperation --> IRenameTarget : contains *
+        BatchRenameOperation --> RenameResult : produces *
+        BatchRenameOperation --> NamingPattern : uses 1
         RenameService --> PatternRegistry : uses 1
         RenameService --> ConflictResolver : uses 1
         RenameService --> TargetCollector : uses 1
-        RenameService --> RenameContext : creates >
-        RenameService --> BatchRenameContext : creates >
+        RenameService --> BatchRenameOperation : creates >
+        RenameService --> RenameResult : creates *
         RENAME_PT_main_panel --> RenameProperties : uses 1
         RENAME_OT_execute --> RenameService : uses 1
         RENAME_UL_patterns --> PatternRegistry : displays 1
@@ -503,64 +530,3 @@
         RenameService "1" --> "1" PatternRegistry : depends on
         RenameService "1" --> "1" ConflictResolver : depends on
         RenameService "1" --> "1" TargetCollector : depends on
-
-
-.. mermaid::
-    :caption: バッチリネーム処理フロー
-    :zoom:
-
-    sequenceDiagram
-        participant ユーザー
-        participant RENAME_OT_execute
-        participant RenameService
-        participant TargetCollector
-        participant BatchRenameContext
-        participant PatternRegistry
-        participant NamingPattern
-        participant ConflictResolver
-        participant NamespaceManager
-        
-        ユーザー->>RENAME_OT_execute: リネーム実行操作
-        RENAME_OT_execute->>RenameService: prepare_batch()
-        
-        RenameService->>PatternRegistry: パターン取得
-        PatternRegistry-->>RenameService: NamingPattern返却
-        
-        RenameService->>TargetCollector: ターゲット収集
-        TargetCollector->>TargetCollector: コンテキストに基づく収集
-        TargetCollector-->>RenameService: ターゲットリスト返却
-        
-        RenameService->>BatchRenameContext: 新しいバッチコンテキスト作成
-        RenameService-->>RENAME_OT_execute: バッチコンテキスト返却
-        
-        RENAME_OT_execute->>RenameService: execute_batch()
-        
-        loop 各ターゲットについて
-            RenameService->>NamingPattern: 提案名生成
-            NamingPattern-->>RenameService: 提案名返却
-        end
-        
-        RenameService->>ConflictResolver: バッチ処理依頼
-        
-        ConflictResolver->>NamespaceManager: 名前空間取得
-        NamespaceManager-->>ConflictResolver: 名前空間返却
-        
-        loop 競合解決処理
-            ConflictResolver->>ConflictResolver: 競合検出と解決
-            ConflictResolver->>NamespaceManager: 重複チェック
-            NamespaceManager-->>ConflictResolver: 結果返却
-        end
-        
-        ConflictResolver-->>RenameService: 解決済み名前マップ返却
-        
-        loop 名前適用処理
-            RenameService->>RenameService: ターゲットに名前設定
-            RenameService->>ConflictResolver: 名前空間更新
-            ConflictResolver->>NamespaceManager: 更新実行
-            NamespaceManager-->>ConflictResolver: 更新完了
-            ConflictResolver-->>RenameService: 更新完了
-        end
-        
-        RenameService->>BatchRenameContext: 結果を保存
-        RenameService-->>RENAME_OT_execute: 実行結果返却
-        RENAME_OT_execute-->>ユーザー: 完了通知
