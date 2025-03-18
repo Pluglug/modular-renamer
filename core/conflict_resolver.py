@@ -152,3 +152,10 @@ class ConflictResolver:
         # 実際の実装では、BlenderのAPIを使用する必要がある
         # 現時点では空のリストを返す
         return []
+
+    def update_namespace(self, target: IRenameTarget, name: str) -> None:
+        """
+        名前空間を更新する
+        """
+        namespace = self.namespace_manager.get_namespace(target)
+        namespace.update(target.get_name(), name)

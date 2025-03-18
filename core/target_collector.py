@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List
+from typing import Dict, List
+
+from bpy.types import Context
 
 from .rename_target import IRenameTarget
 
@@ -10,12 +12,12 @@ class CollectionStrategy(ABC):
     """
 
     @abstractmethod
-    def collect(self, context: Any) -> List[IRenameTarget]:
+    def collect(self, context: Context) -> List[IRenameTarget]:
         """
         コンテキストからターゲットを収集する
 
         Args:
-            context: Blenderコンテキスト
+            context: bpy.context
 
         Returns:
             ターゲットのリスト
@@ -32,7 +34,7 @@ class TargetCollector:
         """
         ターゲットコレクターを初期化する
         """
-        self.strategies: Dict[str, CollectionStrategy] = {}
+        self._strategies: Dict[str, CollectionStrategy] = {}  # {type_name: strategy}
 
     def register_strategy(self, target_type: str, strategy: CollectionStrategy) -> None:
         """
@@ -42,15 +44,15 @@ class TargetCollector:
             target_type: ターゲットのタイプ
             strategy: 収集戦略
         """
-        self.strategies[target_type] = strategy
+        self._strategies[target_type] = strategy
 
-    def collect(self, target_type: str, context: Any) -> List[IRenameTarget]:
+    def collect(self, target_type: str, context: Context) -> List[IRenameTarget]:
         """
         特定のタイプのターゲットを収集する
 
         Args:
             target_type: 収集するターゲットのタイプ
-            context: Blenderコンテキスト
+            context: bpy.context
 
         Returns:
             ターゲットのリスト
@@ -58,10 +60,10 @@ class TargetCollector:
         Raises:
             KeyError: ターゲットタイプの戦略が登録されていない場合
         """
-        if target_type not in self.strategies:
+        if target_type not in self._strategies:
             raise KeyError(
                 f"ターゲットタイプの収集戦略が登録されていません: {target_type}"
             )
 
-        strategy = self.strategies[target_type]
+        strategy = self._strategies[target_type]
         return strategy.collect(context)

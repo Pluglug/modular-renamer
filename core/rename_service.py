@@ -1,4 +1,5 @@
 from typing import Any, Dict, List, Optional
+from dataclasses import dataclass
 
 from .conflict_resolver import ConflictResolver
 from .namespace import NamespaceManager
@@ -26,6 +27,7 @@ class RenameContext:
         self.proposed_name = ""
         self.final_name = ""
         self.conflict_resolution = None
+        self.message = ""  # エラーメッセージなど
 
     def __repr__(self) -> str:
         return f"RenameContext(target={self.target.get_name()}, original={self.original_name}, proposed={self.proposed_name}, final={self.final_name})"
@@ -39,7 +41,6 @@ class RenameService:
     def __init__(
         self,
         pattern_registry: PatternRegistry,
-        namespace_manager: NamespaceManager,
         conflict_resolver: ConflictResolver,
     ):
         """
@@ -47,11 +48,9 @@ class RenameService:
 
         Args:
             pattern_registry: PatternRegistryインスタンス
-            namespace_manager: NamespaceManagerインスタンス
             conflict_resolver: ConflictResolverインスタンス
         """
         self.pattern_registry = pattern_registry
-        self.namespace_manager = namespace_manager
         self.conflict_resolver = conflict_resolver
 
     def prepare(self, target: IRenameTarget, pattern_name: str) -> RenameContext:
@@ -125,43 +124,3 @@ class RenameService:
         # ターゲットの名前を更新
         old_name = context.target.get_name()
         context.target.set_name(context.final_name)
-
-        # 名前空間を更新
-        namespace = self.namespace_manager.get_namespace(context.target)
-        namespace.update(old_name, context.final_name)
-
-        return True
-
-    def batch_rename(
-        self,
-        targets: List[IRenameTarget],
-        pattern_name: str,
-        updates: Dict,
-        strategy: str,
-    ) -> List[RenameContext]:
-        """
-        複数のターゲットをリネームする
-
-        Args:
-            targets: リネーム対象のリスト
-            pattern_name: 使用するパターンの名前
-            updates: 要素更新の辞書
-            strategy: 競合解決戦略
-
-        Returns:
-            リネームコンテキストのリスト
-        """
-        contexts = []
-
-        for target in targets:
-            # 無効なタイプのターゲットをスキップ
-            try:
-                context = self.prepare(target, pattern_name)
-                context = self.update_elements(context, updates)
-                self.execute(context, strategy)
-                contexts.append(context)
-            except KeyError:
-                # パターンが存在しないターゲットをスキップ
-                pass
-
-        return contexts
