@@ -1,158 +1,60 @@
 """
-パターンの登録・検索・保存・読み込み
-古い実装では明示的に分離されていなかった機能
+パターンの登録・検索・管理
 """
 
-import json
-import os
-from typing import Dict, List
+from typing import Dict, List, Optional
 
-from .element_registry import ElementRegistry
 from .pattern import NamingPattern
 
 
 class PatternRegistry:
     """
-    異なるターゲットタイプの命名パターンを管理するレジストリ
+    パターンの登録と取得を管理する純粋なレジストリ
+    設定の読み込みや永続化の詳細は上位レイヤーに委ねる
     """
 
-    def __init__(self, element_registry: ElementRegistry):
-        """
-        パターンレジストリを初期化する
-
-        Args:
-            element_registry: パターンの要素を作成するためのElementRegistry
-        """
-        self.patterns: Dict[str, Dict[str, NamingPattern]] = {}
-        self.element_registry = element_registry
+    def __init__(self):
+        self._patterns: Dict[str, NamingPattern] = {}
 
     def register_pattern(self, pattern: NamingPattern) -> None:
         """
-        レジストリにパターンを登録する
+        パターンを登録
 
         Args:
-            pattern: 登録するNamingPattern
+            pattern: 登録するパターン
         """
-        target_type = pattern.target_type
+        self._patterns[pattern.name] = pattern
 
-        # ターゲットタイプの辞書が存在しない場合は作成
-        if target_type not in self.patterns:
-            self.patterns[target_type] = {}
-
-        # パターンを登録
-        self.patterns[target_type][pattern.name] = pattern
-
-    def get_pattern(self, target_type: str, name: str) -> NamingPattern:
+    def get_pattern(self, name: str) -> Optional[NamingPattern]:
         """
-        ターゲットタイプと名前でパターンを取得する
+        パターン名からパターンを取得
 
         Args:
-            target_type: ターゲットタイプ
             name: パターン名
 
         Returns:
-            要求されたパターン
-
-        Raises:
-            KeyError: パターンが存在しない場合
+            Optional[NamingPattern]: 見つかったパターン、存在しない場合はNone
         """
-        if target_type not in self.patterns:
-            raise KeyError(f"ターゲットタイプのパターンが存在しません: {target_type}")
+        return self._patterns.get(name)
 
-        if name not in self.patterns[target_type]:
-            raise KeyError(
-                f"ターゲットタイプ {target_type} のパターン '{name}' が見つかりません"
-            )
-
-        return self.patterns[target_type][name]
-
-    def get_patterns_for_type(self, target_type: str) -> List[NamingPattern]:
+    def get_all_patterns(self) -> List[NamingPattern]:
         """
-        ターゲットタイプのすべてのパターンを取得する
-
-        Args:
-            target_type: ターゲットタイプ
+        登録されている全パターンを取得
 
         Returns:
-            ターゲットタイプのパターンリスト
+            List[NamingPattern]: 登録されているパターンのリスト
         """
-        if target_type not in self.patterns:
-            return []
+        return list(self._patterns.values())
 
-        return list(self.patterns[target_type].values())
-
-    def load_from_file(self, path: str) -> None:
+    def remove_pattern(self, name: str) -> None:
         """
-        JSONファイルからパターンを読み込む
+        パターンを削除
 
         Args:
-            path: JSONファイルのパス
+            name: 削除するパターンの名前
         """
-        try:
-            with open(path, "r") as f:
-                data = json.load(f)
+        self._patterns.pop(name, None)
 
-            # 既存のパターンをクリア
-            self.patterns = {}
-
-            # パターンを読み込む
-            for target_type, patterns in data.items():
-                for pattern_name, pattern_data in patterns.items():
-                    elements_config = pattern_data.get("elements", [])
-                    pattern = NamingPattern(
-                        pattern_name,
-                        target_type,
-                        elements_config,
-                        self.element_registry,
-                    )
-                    self.register_pattern(pattern)
-
-        except (IOError, json.JSONDecodeError) as e:
-            print(f"パターンの読み込み中にエラーが発生しました {path}: {e}")
-
-    def save_to_file(self, path: str) -> bool:
-        """
-        パターンをJSONファイルに保存する
-
-        Args:
-            path: JSONファイルのパス
-
-        Returns:
-            成功した場合はTrue、それ以外はFalse
-        """
-        try:
-            # ディレクトリが存在することを確認
-            os.makedirs(os.path.dirname(path), exist_ok=True)
-
-            # パターンをシリアライズ可能な形式に変換
-            data = {}
-            for target_type, patterns in self.patterns.items():
-                data[target_type] = {}
-                for pattern_name, pattern in patterns.items():
-                    # 要素をシリアライズ
-                    elements = []
-                    for element in pattern.elements:
-                        # 要素からシリアライズ可能なプロパティを抽出
-                        # 要素にto_dictメソッドがあることを前提とする
-                        elements.append(
-                            {
-                                "id": element.id,
-                                "type": element.__class__.__name__,
-                                "order": element.order,
-                                "enabled": element.enabled,
-                                "separator": element.separator,
-                                # 追加のプロパティはここに追加
-                            }
-                        )
-
-                    data[target_type][pattern_name] = {"elements": elements}
-
-            # ファイルに書き込み
-            with open(path, "w") as f:
-                json.dump(data, f, indent=2)
-
-            return True
-
-        except (IOError, TypeError) as e:
-            print(f"パターンの保存中にエラーが発生しました {path}: {e}")
-            return False
+    def clear(self) -> None:
+        """全パターンの削除"""
+        self._patterns.clear()

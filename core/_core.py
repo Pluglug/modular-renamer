@@ -56,18 +56,18 @@
 # class NamingElementProcessor(ABC):
 #     """Base class for all naming element processors"""
 
-#     def __init__(self, element_data):
+#     def __init__(self, element_config):
 #         """
 #         Initialize the processor with element data from preferences
 
 #         Args:
-#             element_data: Data structure containing element properties
+#             element_config: Data structure containing element properties
 #         """
-#         self.id = element_data.id
-#         self.enabled = element_data.enabled
-#         self.separator = element_data.separator
-#         self.element_type = element_data.element_type
-#         self.order = element_data.order
+#         self.id = element_config.id
+#         self.enabled = element_config.enabled
+#         self.separator = element_config.separator
+#         self.element_type = element_config.element_type
+#         self.order = element_config.order
 #         self.cache_invalidated = True
 #         self.compiled_pattern = None
 #         self._value = None
@@ -175,9 +175,9 @@
 # class TextElementProcessor(NamingElementProcessor):
 #     """Processor for text elements with predefined options"""
 
-#     def __init__(self, element_data):
-#         super().__init__(element_data)
-#         self.items = [item.name for item in element_data.items]
+#     def __init__(self, element_config):
+#         super().__init__(element_config)
+#         self.items = [item.name for item in element_config.items]
 
 #     @add_separator_by_order
 #     @add_named_capture_group
@@ -199,9 +199,9 @@
 # class FreeTextElementProcessor(NamingElementProcessor):
 #     """Processor for free text input elements"""
 
-#     def __init__(self, element_data):
-#         super().__init__(element_data)
-#         self.default_text = element_data.default_text
+#     def __init__(self, element_config):
+#         super().__init__(element_config)
+#         self.default_text = element_config.default_text
 
 #     @add_separator_by_order
 #     @add_named_capture_group
@@ -223,24 +223,24 @@
 # class PositionElementProcessor(NamingElementProcessor):
 #     """Processor for position indicator elements (L/R, Top/Bot, Fr/Bk, etc)"""
 
-#     def __init__(self, element_data):
-#         super().__init__(element_data)
+#     def __init__(self, element_config):
+#         super().__init__(element_config)
 
 #         # X軸の値を取得
-#         self.xaxis_type = element_data.xaxis_type
-#         self.xaxis_enabled = element_data.xaxis_enabled
+#         self.xaxis_type = element_config.xaxis_type
+#         self.xaxis_enabled = element_config.xaxis_enabled
 #         self.xaxis_values = (
 #             self.xaxis_type.split("|") if self.xaxis_type and self.xaxis_enabled else []
 #         )
 
 #         # Y軸の値を取得
-#         self.yaxis_enabled = element_data.yaxis_enabled
+#         self.yaxis_enabled = element_config.yaxis_enabled
 #         self.yaxis_values = (
 #             POSITION_ENUM_ITEMS["YAXIS"][0][0].split("|") if self.yaxis_enabled else []
 #         )
 
 #         # Z軸の値を取得
-#         self.zaxis_enabled = element_data.zaxis_enabled
+#         self.zaxis_enabled = element_config.zaxis_enabled
 #         self.zaxis_values = (
 #             POSITION_ENUM_ITEMS["ZAXIS"][0][0].split("|") if self.zaxis_enabled else []
 #         )
@@ -281,10 +281,10 @@
 # class CounterElementProcessor(NamingElementProcessor):
 #     """Processor for counter elements"""
 
-#     def __init__(self, element_data):
-#         super().__init__(element_data)
-#         self.padding = element_data.padding
-#         self.counter_type = element_data.counter_type  # 'custom' or 'blender'
+#     def __init__(self, element_config):
+#         super().__init__(element_config)
+#         self.padding = element_config.padding
+#         self.counter_type = element_config.counter_type  # 'custom' or 'blender'
 
 #     # @add_separator_by_order
 #     # @add_named_capture_group
@@ -313,9 +313,9 @@
 # class DateElementProcessor(NamingElementProcessor):
 #     """Processor for date elements"""
 
-#     def __init__(self, element_data):
-#         super().__init__(element_data)
-#         self.date_format = element_data.date_format
+#     def __init__(self, element_config):
+#         super().__init__(element_config)
+#         self.date_format = element_config.date_format
 
 #     @add_separator_by_order
 #     @add_named_capture_group
@@ -332,9 +332,9 @@
 # class RegexElementProcessor(NamingElementProcessor):
 #     """Processor for custom regex elements"""
 
-#     def __init__(self, element_data):
-#         super().__init__(element_data)
-#         self.pattern = element_data.pattern
+#     def __init__(self, element_config):
+#         super().__init__(element_config)
+#         self.pattern = element_config.pattern
 
 #     @add_separator_by_order
 #     @add_named_capture_group

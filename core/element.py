@@ -5,26 +5,33 @@
 
 import re
 from abc import ABC, abstractmethod
-from typing import Any, Tuple
+from typing import Any, ClassVar, Dict, Tuple, Optional
 
 from ..utils import logging
+from ..utils.strings_utils import is_pascal_case, to_snake_case
 
 log = logging.get_logger(__name__)
 
 
-class ElementData:
+class ElementConfig:
     """
     Data structure for element configuration
     """
 
     def __init__(
-        self, id: str, order: int, enabled: bool = True, separator: str = "", **kwargs
+        self,
+        type: str,
+        id: str,
+        order: int,
+        enabled: bool = True,
+        separator: str = "_",
+        **kwargs,
     ):
+        self.type = type
         self.id = id
         self.order = order
         self.enabled = enabled
         self.separator = separator
-        self.element_type = kwargs.get("element_type", "")
 
         # Store any additional properties
         for key, value in kwargs.items():
@@ -35,6 +42,58 @@ class INameElement(ABC):
     """
     名前要素のインターフェース
     """
+
+    @classmethod
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if not hasattr(cls, "element_type"):
+            name = cls.__name__.replace("Element", "")
+            if is_pascal_case(name):
+                cls.element_type = to_snake_case(name)
+            else:
+                log.warning(f"PascalCaseではない要素名: {name}")
+                cls.element_type = name.lower()
+
+    config_fields: ClassVar[Dict[str, Any]] = {
+        "type": str,
+        "id": str,
+        "order": int,
+        "enabled": bool,
+        "separator": str,
+    }
+
+    @classmethod
+    def validate_config(cls, config: ElementConfig) -> Optional[str]:
+        """
+        設定のバリデーション
+
+        Args:
+            config: 検証する設定
+
+        Returns:
+            str: エラーメッセージ。問題なければNone
+        """
+        # ElementConfigの型チェック
+        if not isinstance(config, ElementConfig):
+            return "要素設定がElementConfig型ではありません"
+
+        # 必須フィールドの存在と型チェック
+        for field_name, field_type in cls.config_fields.items():
+            if not hasattr(config, field_name):
+                return f"必須フィールド '{field_name}' がありません"
+
+            value = getattr(config, field_name)
+            if not isinstance(value, field_type):
+                return f"フィールド '{field_name}' の型が不正です: expected {field_type}, got {type(value)}"
+
+        return None
+
+    @classmethod
+    def get_config_names(cls) -> Set[str]:
+        """
+        設定フィールド名のセットを返す
+        """
+        return set(cls.config_fields.keys())
 
     @property
     @abstractmethod
@@ -104,11 +163,11 @@ class BaseElement(INameElement, ABC):
     オペレーター実行時には standby により値だけをリセットする。
     """
 
-    def __init__(self, element_data: ElementData):
-        self._id = element_data.get("id")
-        self._order = element_data.get("order")
-        self._enabled = element_data.get("enabled")
-        self._separator = element_data.get("separator")
+    def __init__(self, element_config: ElementConfig):
+        self._id = element_config.get("id")
+        self._order = element_config.get("order")
+        self._enabled = element_config.get("enabled")
+        self._separator = element_config.get("separator")
 
         self._value = None
         self._pattern = None
@@ -230,8 +289,8 @@ class ICounter(ABC):
 class BaseCounter(BaseElement, ICounter):
     """Base implementation for all counters"""
 
-    def __init__(self, element_data: ElementData):
-        super().__init__(element_data)
+    def __init__(self, element_config: ElementConfig):
+        super().__init__(element_config)
         self._value_int = None
         self.forward = None
         self.backward = None

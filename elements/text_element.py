@@ -1,8 +1,8 @@
 import random
 import re
-from typing import Tuple
+from typing import Optional, Tuple
 
-from ..core.element import BaseElement
+from ..core.element import BaseElement, ElementConfig
 from ..utils import logging, regex_utils
 
 log = logging.get_logger(__name__)
@@ -13,9 +13,22 @@ class TextElement(BaseElement):
     事前に定義された文字列の中から値を選択するテキスト要素
     """
 
-    def __init__(self, element_data):
-        super().__init__(element_data)
-        self.items = [item.name for item in element_data.items]
+    def __init__(self, element_config):
+        super().__init__(element_config)
+        self.items = [item.name for item in element_config.items]
+
+    config_fields = {
+        **BaseElement.config_fields,
+        "items": list,
+    }
+
+    @classmethod
+    def validate_config(cls, config: ElementConfig) -> Optional[str]:
+        if error := super().validate_config(config):
+            return error
+        if not config.items:
+            return "items は空ではないリストである必要があります"
+        return None
 
     @regex_utils.add_separator_by_order
     @regex_utils.add_named_capture_group
@@ -38,9 +51,9 @@ class TextElement(BaseElement):
 #     フリーテキスト要素
 #     """
 
-#     def __init__(self, element_data):
-#         super().__init__(element_data)
-#         self.text = element_data.text
+#     def __init__(self, element_config):
+#         super().__init__(element_config)
+#         self.text = element_config.text
 
 #     def standby(self):
 #         super().standby()

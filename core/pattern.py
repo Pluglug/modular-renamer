@@ -7,8 +7,9 @@ import itertools
 import random
 from typing import Dict, List, Optional
 
+from ..elements.counter_element import blender_counter_element_config
 from ..utils.logging import get_logger
-from .element import INameElement
+from .element import ElementConfig, INameElement
 from .element_registry import ElementRegistry
 
 log = get_logger(__name__)
@@ -23,7 +24,7 @@ class NamingPattern:
         self,
         name: str,
         target_type: str,
-        elements_config: List[Dict],
+        elements_config: List[ElementConfig],
         element_registry: ElementRegistry,
     ):
         """
@@ -31,18 +32,16 @@ class NamingPattern:
 
         Args:
             name: パターンの名前
-            target_type: このパターンの対象タイプ（オブジェクト、ボーン、マテリアルなど）
             elements_config: 各要素の設定リスト
             element_registry: 要素を作成するためのElementRegistry
         """
         self.name = name
-        self.target_type = target_type
         self.elements: List[INameElement] = []
 
         self._load_elements(elements_config, element_registry)
 
-    def _load_elements(  # TODO: Registryに委譲
-        self, elements_config: List[Dict], element_registry: ElementRegistry
+    def _load_elements(
+        self, elements_config: List[ElementConfig], element_registry: ElementRegistry
     ) -> None:
         """
         設定から要素を読み込む
@@ -53,11 +52,15 @@ class NamingPattern:
         """
         for config in elements_config:
             try:
-                element_type = config["type"]
-                element = element_registry.create_element(element_type, config)
+                element = element_registry.create_element(config)
                 self.elements.append(element)
             except (KeyError, TypeError) as e:
                 log.error(f"要素の読み込み中にエラーが発生しました: {e}")
+
+        # かならずBlenderCounterを追加
+        if "blender_counter" not in [e.element_type for e in self.elements]:
+            element = element_registry.create_element(blender_counter_element_config)
+            self.elements.append(element)
 
         # 要素を順序でソート
         self.elements.sort(key=lambda e: e.order)

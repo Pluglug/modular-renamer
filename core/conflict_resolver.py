@@ -10,7 +10,7 @@ class ConflictResolver:
     """
 
     # 競合解決戦略
-    STRATEGY_COUNTER = "counter"
+    STRATEGY_COUNTER = "numeric_counter"
     STRATEGY_FORCE = "force"
 
     def __init__(self, namespace_manager: NamespaceManager):
