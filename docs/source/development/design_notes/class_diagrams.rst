@@ -4,6 +4,7 @@
 
 .. mermaid::
     :caption: リネーム処理フロー
+    :zoom:
 
     sequenceDiagram
         participant ユーザー
@@ -57,6 +58,7 @@
 
 .. mermaid::
     :caption: コレクターおよび名前空間のクラス図
+    :zoom:
 
     sequenceDiagram
         participant ユーザー
