@@ -207,14 +207,10 @@ classDiagram
             +STRATEGY_COUNTER: str
             +STRATEGY_FORCE: str
             +resolve_name_conflict(target: IRenameTarget, pattern: NamingPattern, proposed_name: str, strategy: str) str
-            +simulate_namespace_update(target: IRenameTarget, old_name: str, new_name: str) void
-            +apply_namespace_update(target: IRenameTarget, old_name: str, new_name: str) void
-            +reset_simulation() void
             -_get_namespace(target: IRenameTarget) INamespace
-            -_is_name_in_conflict(name: str, namespace: INamespace) bool
+            -_is_name_in_conflict(name: str, namespace: INamespace, target: IRenameTarget) bool
             -_resolve_with_counter(pattern: NamingPattern, name: str, namespace: INamespace) str
             -_resolve_with_force(name: str) str
-            -_find_conflicting_targets(target: IRenameTarget, name: str) List[IRenameTarget]
         }
         class RenameResult {
             +target: IRenameTarget
