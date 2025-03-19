@@ -43,6 +43,9 @@ class INameElement(ABC):
     名前要素のインターフェース
     """
 
+    element_type: ClassVar[str]
+    config_fields: ClassVar[Dict[str, Any]]
+
     @property
     @abstractmethod
     def id(self) -> str:
