@@ -5,7 +5,7 @@
 
 import re
 from abc import ABC, abstractmethod
-from typing import Any, ClassVar, Dict, Tuple, Optional
+from typing import Any, ClassVar, Dict, Tuple, Optional, Set
 
 from ..utils import logging
 from ..utils.strings_utils import is_pascal_case, to_snake_case
@@ -42,58 +42,6 @@ class INameElement(ABC):
     """
     名前要素のインターフェース
     """
-
-    @classmethod
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
-        if not hasattr(cls, "element_type"):
-            name = cls.__name__.replace("Element", "")
-            if is_pascal_case(name):
-                cls.element_type = to_snake_case(name)
-            else:
-                log.warning(f"PascalCaseではない要素名: {name}")
-                cls.element_type = name.lower()
-
-    config_fields: ClassVar[Dict[str, Any]] = {
-        "type": str,
-        "id": str,
-        "order": int,
-        "enabled": bool,
-        "separator": str,
-    }
-
-    @classmethod
-    def validate_config(cls, config: ElementConfig) -> Optional[str]:
-        """
-        設定のバリデーション
-
-        Args:
-            config: 検証する設定
-
-        Returns:
-            str: エラーメッセージ。問題なければNone
-        """
-        # ElementConfigの型チェック
-        if not isinstance(config, ElementConfig):
-            return "要素設定がElementConfig型ではありません"
-
-        # 必須フィールドの存在と型チェック
-        for field_name, field_type in cls.config_fields.items():
-            if not hasattr(config, field_name):
-                return f"必須フィールド '{field_name}' がありません"
-
-            value = getattr(config, field_name)
-            if not isinstance(value, field_type):
-                return f"フィールド '{field_name}' の型が不正です: expected {field_type}, got {type(value)}"
-
-        return None
-
-    @classmethod
-    def get_config_names(cls) -> Set[str]:
-        """
-        設定フィールド名のセットを返す
-        """
-        return set(cls.config_fields.keys())
 
     @property
     @abstractmethod
@@ -162,6 +110,58 @@ class BaseElement(INameElement, ABC):
     ユーザー設定完了時にキャッシュ（コンパイル済み正規表現）を生成し、
     オペレーター実行時には standby により値だけをリセットする。
     """
+
+    config_fields: ClassVar[Dict[str, Any]] = {
+        "type": str,
+        "id": str,
+        "order": int,
+        "enabled": bool,
+        "separator": str,
+    }
+
+    @classmethod
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if not hasattr(cls, "element_type"):
+            name = cls.__name__.replace("Element", "")
+            if is_pascal_case(name):
+                cls.element_type = to_snake_case(name)
+            else:
+                log.warning(f"PascalCaseではない要素名: {name}")
+                cls.element_type = name.lower()
+
+    @classmethod
+    def validate_config(cls, config: ElementConfig) -> Optional[str]:
+        """
+        設定のバリデーション
+
+        Args:
+            config: 検証する設定
+
+        Returns:
+            str: エラーメッセージ。問題なければNone
+        """
+        # ElementConfigの型チェック
+        if not isinstance(config, ElementConfig):
+            return "要素設定がElementConfig型ではありません"
+
+        # 必須フィールドの存在と型チェック
+        for field_name, field_type in cls.config_fields.items():
+            if not hasattr(config, field_name):
+                return f"必須フィールド '{field_name}' がありません"
+
+            value = getattr(config, field_name)
+            if not isinstance(value, field_type):
+                return f"フィールド '{field_name}' の型が不正です: expected {field_type}, got {type(value)}"
+
+        return None
+
+    @classmethod
+    def get_config_names(cls) -> Set[str]:
+        """
+        設定フィールド名のセットを返す
+        """
+        return set(cls.config_fields.keys())
 
     def __init__(self, element_config: ElementConfig):
         self._id = element_config.get("id")
