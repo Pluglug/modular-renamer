@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, Set
+from typing import Any, Callable, Dict, Set, List
 
 from .rename_target import IRenameTarget
 
@@ -169,3 +169,12 @@ class NamespaceManager:
         self.namespaces[namespace_key] = namespace
 
         return namespace
+
+    def get_all_namespaces(self) -> List[INamespace]:
+        """
+        管理している全ての名前空間のリストを取得する
+
+        Returns:
+            名前空間のリスト
+        """
+        return list(self.namespaces.values())

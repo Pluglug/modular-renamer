@@ -117,9 +117,6 @@ class RenameService:
         if not targets:
             raise ValueError(f"リネーム対象が見つかりません (タイプ: {target_type})")
 
-        # 競合解決のシミュレーションをリセット
-        self.conflict_resolver.reset_simulation()
-
         # バッチ操作を作成
         return BatchRenameOperation(targets, pattern)
 
@@ -160,9 +157,6 @@ class RenameService:
             )
             results.append(result)
 
-        # シミュレーション状態をリセット
-        self.conflict_resolver.reset_simulation()
-
         return results
 
     def execute_batch(self, batch_op: BatchRenameOperation) -> List[RenameResult]:
@@ -175,11 +169,9 @@ class RenameService:
         Returns:
             リネーム結果のリスト
         """
-        # 競合解決のシミュレーションをリセット
-        self.conflict_resolver.reset_simulation()
         batch_op.results = []
 
-        # フェーズ1: すべてのターゲットに対して名前を解決し、シミュレーション名前空間を更新
+        # フェーズ1: すべてのターゲットに対して名前を解決
         for target in batch_op.targets:
             result = self._process_target(target, batch_op.pattern, batch_op.strategy)
             batch_op.results.append(result)
@@ -248,11 +240,6 @@ class RenameService:
                 result.message = "名前競合の解決に失敗しました"
                 return result
 
-            # シミュレーション名前空間を更新（実際のオブジェクトはまだ変更しない）
-            self.conflict_resolver.simulate_namespace_update(
-                target, original_name, final_name
-            )
-
             # 結果を設定
             result.final_name = final_name
             result.success = True
@@ -279,10 +266,10 @@ class RenameService:
                     # ターゲットの名前を更新
                     result.target.set_name(result.final_name)
 
-                    # 実際の名前空間を更新
-                    self.conflict_resolver.apply_namespace_update(
-                        result.target, old_name, result.final_name
-                    )
+                    # 名前空間を更新
+                    namespace = self.conflict_resolver._get_namespace(result.target)
+                    if namespace:
+                        namespace.update(old_name, result.final_name)
 
                 except Exception as e:
                     result.success = False

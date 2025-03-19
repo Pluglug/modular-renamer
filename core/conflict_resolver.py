@@ -64,32 +64,6 @@ class ConflictResolver:
         # 不明な戦略の場合は提案名をそのまま返す
         return proposed_name
 
-    def simulate_namespace_update(
-        self, target: IRenameTarget, old_name: str, new_name: str
-    ) -> None:
-        """
-        名前空間のシミュレーション更新を実行する
-
-        Args:
-            target: リネーム対象
-            old_name: 古い名前
-            new_name: 新しい名前
-        """
-        namespace = self._get_namespace(target)
-        if namespace:
-            # 名前空間のシミュレーション更新を実行
-            namespace.simulate_update(old_name, new_name)
-
-            # 競合解決の履歴を記録
-            self.resolved_conflicts.append(
-                {
-                    "target_type": target.target_type,
-                    "key": target.get_namespace_key(),
-                    "old_name": old_name,
-                    "new_name": new_name,
-                }
-            )
-
     def apply_namespace_update(
         self, target: IRenameTarget, old_name: str, new_name: str
     ) -> None:
@@ -104,15 +78,6 @@ class ConflictResolver:
         namespace = self._get_namespace(target)
         if namespace:
             namespace.update(old_name, new_name)
-
-    def reset_simulation(self) -> None:
-        """
-        名前空間のシミュレーション状態をリセットする
-        """
-        # すべての名前空間のシミュレーション状態をリセット
-        for namespace in self.namespace_manager.get_all_namespaces():
-            namespace.reset_simulation()
-        self.resolved_conflicts = []
 
     def _get_namespace(self, target: IRenameTarget) -> Optional[INamespace]:
         """
@@ -147,8 +112,8 @@ class ConflictResolver:
         if name == target.get_name():
             return False
 
-        # 名前空間のシミュレーション状態を考慮して競合をチェック
-        return namespace.is_name_in_conflict(name)
+        # 名前空間で名前の競合をチェック
+        return namespace.contains(name)
 
     def _resolve_with_counter(
         self, pattern: NamingPattern, name: str, namespace: INamespace
@@ -172,7 +137,7 @@ class ConflictResolver:
             suffix = 1
             new_name = f"{name}.{suffix:03d}"
 
-            while namespace.is_name_in_conflict(new_name):
+            while namespace.contains(new_name):
                 suffix += 1
                 new_name = f"{name}.{suffix:03d}"
 
@@ -193,7 +158,7 @@ class ConflictResolver:
             counter.increment()
             new_name = pattern.render_name()
 
-            if not namespace.is_name_in_conflict(new_name):
+            if not namespace.contains(new_name):
                 return new_name
 
             iterations += 1
@@ -212,6 +177,7 @@ class ConflictResolver:
             同じ名前（変更なし）
         """
         return name
+
     def _find_conflicting_targets(
         self, target: IRenameTarget, name: str
     ) -> List[IRenameTarget]:
