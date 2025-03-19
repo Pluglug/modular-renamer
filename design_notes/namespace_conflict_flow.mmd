@@ -1,0 +1,66 @@
+---
+config:
+  layout: elk
+  theme: default
+  dagre:
+    ranksep: 100
+    nodesep: 100
+    edgesep: 10
+    direction: TD
+---
+
+sequenceDiagram
+    participant RenameService
+    participant ConflictResolver
+    participant NamespaceManager
+    participant Namespace
+    participant IRenameTarget
+    participant NamingPattern
+    
+    RenameService->>ConflictResolver: resolve_name_conflict(target, pattern, proposed_name, strategy)
+    ConflictResolver->>IRenameTarget: 名前空間キー取得
+    IRenameTarget-->>ConflictResolver: キー返却（例：オブジェクト種別）
+    
+    ConflictResolver->>NamespaceManager: 名前空間取得
+    NamespaceManager->>Namespace: 特定のNamespace取得
+    Namespace-->>NamespaceManager: Namespace返却
+    NamespaceManager-->>ConflictResolver: Namespace返却
+    
+    ConflictResolver->>Namespace: 名前の重複チェック
+    Namespace-->>ConflictResolver: 重複状態返却
+    
+    alt 重複あり
+        alt 戦略 = COUNTER
+            ConflictResolver->>NamingPattern: カウンター要素取得
+            NamingPattern->>NamingPattern: increment()で名前更新
+            NamingPattern-->>ConflictResolver: 更新名返却
+            
+            loop 重複が解消されるまで
+                ConflictResolver->>Namespace: 再度重複チェック
+                Namespace-->>ConflictResolver: 重複状態返却
+                
+                opt まだ重複している
+                    ConflictResolver->>NamingPattern: 再度increment()
+                    NamingPattern-->>ConflictResolver: 更新名返却
+                end
+            end
+        else 戦略 = FORCE
+            Note over ConflictResolver: 重複を無視
+        end
+    end
+    
+    ConflictResolver->>NamespaceManager: シミュレーション名前空間を更新
+    NamespaceManager->>Namespace: 更新（実際のオブジェクトはまだ変更なし）
+    Namespace-->>NamespaceManager: 更新完了
+    NamespaceManager-->>ConflictResolver: 完了
+    
+    ConflictResolver-->>RenameService: 解決済み名前返却
+    
+    Note over RenameService: すべてのターゲットの名前解決後
+    
+    RenameService->>ConflictResolver: apply_namespace_update(target, old_name, new_name)
+    ConflictResolver->>NamespaceManager: 実際の名前空間更新
+    NamespaceManager->>Namespace: 更新
+    Namespace-->>NamespaceManager: 更新完了
+    NamespaceManager-->>ConflictResolver: 完了
+    ConflictResolver-->>RenameService: 更新完了
