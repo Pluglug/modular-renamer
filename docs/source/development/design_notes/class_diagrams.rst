@@ -155,10 +155,8 @@
             }
             class INameElement {
                 <<interface>>
-                +config_fields: Dict[str, Any]
-                +validate_config(config: ElementConfig) Optional[str]
-                +get_config_names() Set[str]
-                +element_type: str
+                +element_type: ClassVar[str]
+                +config_fields: ClassVar[Dict[str, Any]]
                 +id: str
                 +order: int
                 +enabled: bool
@@ -175,6 +173,9 @@
                 #_value: Any
                 #_pattern: Pattern
                 +cache_invalidated: bool
+                +config_fields: ClassVar[Dict[str, Any]]
+                +validate_config(config: ElementConfig) Optional[str]
+                +get_config_names() Set[str]
                 +parse(name: str) bool
                 +render() tuple[str, str]
                 +set_value(value: Any) void
