@@ -3,14 +3,13 @@
 
 
 .. mermaid::
-    :caption: 実行コンテキストを使用した一括リネーム処理フロー
+    :caption: 順次処理型一括リネーム処理フロー
     :zoom:
 
     sequenceDiagram
         participant ユーザー
         participant RENAME_OT_execute
         participant RenameService
-        participant RenameExecutionContext
         participant TargetCollector
         participant BatchRenameOperation
         participant PatternRegistry
@@ -19,7 +18,6 @@
         participant NamespaceManager
         
         ユーザー->>RENAME_OT_execute: リネーム実行操作
-        RENAME_OT_execute->>RenameExecutionContext: 新しいコンテキスト作成
         RENAME_OT_execute->>RenameService: prepare_batch()
         
         RenameService->>PatternRegistry: パターン取得
@@ -32,17 +30,13 @@
         RenameService->>BatchRenameOperation: 新しいバッチ操作作成
         RenameService-->>RENAME_OT_execute: バッチ操作返却
         
-        RENAME_OT_execute->>RenameService: preview_batch()
-        RenameService->>RenameExecutionContext: enter_simulation_mode()
+        RENAME_OT_execute->>RenameService: execute_batch()
         
-        loop 各ターゲットのプレビュー処理
+        loop 各ターゲットについて
             RenameService->>NamingPattern: 提案名生成
             NamingPattern-->>RenameService: 提案名返却
             
             RenameService->>ConflictResolver: 重複チェック・解決依頼
-            ConflictResolver->>RenameExecutionContext: 名前空間マネージャー取得
-            RenameExecutionContext-->>ConflictResolver: 名前空間マネージャー返却
-            
             ConflictResolver->>NamespaceManager: 名前空間取得
             NamespaceManager-->>ConflictResolver: 名前空間返却
             
@@ -66,27 +60,7 @@
             NamespaceManager-->>ConflictResolver: 更新完了
             ConflictResolver-->>RenameService: 解決済み名前返却
             
-            RenameService->>BatchRenameOperation: プレビュー結果を記録
-        end
-        
-        RenameService->>RenameExecutionContext: exit_simulation_mode()
-        RenameService-->>RENAME_OT_execute: プレビュー結果返却
-        
-        RENAME_OT_execute->>ユーザー: 確認ダイアログ表示
-        ユーザー->>RENAME_OT_execute: 変更を確認
-        
-        RENAME_OT_execute->>RenameService: confirm_batch()
-        RenameService->>RenameExecutionContext: reset()
-        
-        RenameService->>RenameExecutionContext: initialize()
-        RenameExecutionContext->>NamespaceManager: 初期化
-        NamespaceManager-->>RenameExecutionContext: 初期化完了
-        
-        loop 各ターゲットについて
-            RenameService->>ConflictResolver: 名前空間操作
-            ConflictResolver->>RenameExecutionContext: 名前空間マネージャー取得
-            RenameExecutionContext-->>ConflictResolver: 名前空間マネージャー返却
-            ConflictResolver-->>RenameService: 処理完了
+            RenameService->>RenameService: リネーム結果を記録（実際のBlenderオブジェクトはまだ更新しない）
         end
         
         loop 名前適用処理
@@ -101,8 +75,6 @@
         
         RenameService->>BatchRenameOperation: 結果を保存
         RenameService-->>RENAME_OT_execute: 実行結果返却
-        RENAME_OT_execute->>RenameExecutionContext: reset()
-        RenameExecutionContext-->>RENAME_OT_execute: リセット完了
         RENAME_OT_execute-->>ユーザー: 完了通知
 
 
@@ -366,7 +338,6 @@
             class ConflictResolver {
                 -namespace_manager: NamespaceManager
                 -resolved_conflicts: List[Dict]
-                -execution_context: RenameExecutionContext
                 +STRATEGY_COUNTER: str
                 +STRATEGY_FORCE: str
                 +resolve_name_conflict(target: IRenameTarget, pattern: NamingPattern, proposed_name: str, strategy: str) str
@@ -395,32 +366,17 @@
                 +results: List[RenameResult]
                 +pending_results: Dict[str, RenameResult]
                 +has_conflicts: bool
-                +execution_context: RenameExecutionContext
                 +get_result_summary() str
-            }
-            class RenameExecutionContext {
-                -namespace_manager: NamespaceManager
-                -original_state: Dict
-                -simulation_mode: bool
-                +namespace_manager: NamespaceManager
-                +initialize() void
-                +enter_simulation_mode() void
-                +exit_simulation_mode() void
-                +is_in_simulation_mode() bool
-                +backup_current_state() void
-                +restore_original_state() void
-                +reset() void
             }
             class RenameService {
                 -pattern_registry: PatternRegistry
                 -conflict_resolver: ConflictResolver
                 -target_collector: TargetCollector
-                +prepare_batch(target_type: str, pattern_name: str, context: Context, execution_context: RenameExecutionContext) BatchRenameOperation
+                +prepare_batch(target_type: str, pattern_name: str, context: Context) BatchRenameOperation
                 +apply_element_updates(batch_op: BatchRenameOperation, updates: Dict) void
                 +execute_batch(batch_op: BatchRenameOperation) List[RenameResult]
                 +preview_batch(batch_op: BatchRenameOperation) List[RenameResult]
-                +confirm_batch(batch_op: BatchRenameOperation) bool
-                -_process_target(target: IRenameTarget, pattern: NamingPattern, strategy: str, execution_context: RenameExecutionContext) RenameResult
+                -_process_target(target: IRenameTarget, pattern: NamingPattern, strategy: str) RenameResult
                 -_apply_results(batch_op: BatchRenameOperation) void
             }
         }
@@ -559,13 +515,9 @@
         BatchRenameOperation --> IRenameTarget : contains *
         BatchRenameOperation --> RenameResult : produces *
         BatchRenameOperation --> NamingPattern : uses 1
-        BatchRenameOperation --> RenameExecutionContext : uses 1
-        RenameExecutionContext --> NamespaceManager : contains 1
-        ConflictResolver --> RenameExecutionContext : uses 1
         RenameService --> PatternRegistry : uses 1
         RenameService --> ConflictResolver : uses 1
         RenameService --> TargetCollector : uses 1
-        RenameService --> RenameExecutionContext : creates >
         RenameService --> BatchRenameOperation : creates >
         RenameService --> RenameResult : creates *
         RENAME_PT_main_panel --> RenameProperties : uses 1
