@@ -260,17 +260,8 @@ class RenameService:
         for result in batch_op.results:
             if result.success:
                 try:
-                    # 元の名前を保存
-                    old_name = result.target.get_name()
-
                     # ターゲットの名前を更新
                     result.target.set_name(result.final_name)
-
-                    # 名前空間を更新
-                    namespace = self.conflict_resolver._get_namespace(result.target)
-                    if namespace:
-                        namespace.update(old_name, result.final_name)
-
                 except Exception as e:
                     result.success = False
                     result.message = f"名前の適用中にエラーが発生しました: {str(e)}"

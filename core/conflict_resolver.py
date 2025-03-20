@@ -51,18 +51,31 @@ class ConflictResolver:
         if not namespace:
             return proposed_name  # 名前空間がない場合は提案名をそのまま返す
 
+        # 現在の名前を取得
+        original_name = target.get_name()
+
         # 名前が競合するか確認
         if not self._is_name_in_conflict(proposed_name, namespace, target):
-            return proposed_name  # 競合がなければ提案名をそのまま返す
+            # 競合がなければ名前空間を更新して提案名を返す
+            if original_name != proposed_name:  # 名前が変わる場合のみ更新
+                namespace.update(original_name, proposed_name)
+            return proposed_name
 
         # 解決戦略に応じて処理
+        final_name = ""
         if strategy == self.STRATEGY_COUNTER:
-            return self._resolve_with_counter(pattern, proposed_name, namespace)
+            final_name = self._resolve_with_counter(pattern, proposed_name, namespace)
         elif strategy == self.STRATEGY_FORCE:
-            return self._resolve_with_force(proposed_name)
+            final_name = self._resolve_with_force(proposed_name)
+        else:
+            # 不明な戦略の場合は提案名をそのまま返す
+            final_name = proposed_name
 
-        # 不明な戦略の場合は提案名をそのまま返す
-        return proposed_name
+        # 解決された名前で名前空間を更新
+        if original_name != final_name:  # 名前が変わる場合のみ更新
+            namespace.update(original_name, final_name)
+
+        return final_name
 
     def apply_namespace_update(
         self, target: IRenameTarget, old_name: str, new_name: str
@@ -194,4 +207,3 @@ class ConflictResolver:
         # 実際の実装では、BlenderのAPIを使用する必要がある
         # 現時点では空のリストを返す
         return []
-
