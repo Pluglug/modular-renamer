@@ -341,6 +341,7 @@ classDiagram
     PatternConfigManager --> ElementRegistry : uses 1
     PatternConfigManager --> ElementConfig : creates >
     NamespaceCache --> INamespace : manages *
+    NamespaceCache --> IRenameTarget : uses create_namespace()
     TargetCollection o-- IRenameTarget : contains
     ConflictResolver --> NamespaceCache : uses 1
     ConflictResolver --> IRenameTarget : resolves for * 
@@ -351,7 +352,6 @@ classDiagram
     RenameService --> PatternRegistry : uses 1
     RenameService --> ConflictResolver : uses 1
     RenameService --> TargetCollection : uses 1
-    RenameService --> NamespaceCache : uses 1
     RenameService --> BatchRenameOperation : creates >
     RenameService --> RenameResult : creates *
     RENAME_PT_main_panel --> RenameProperties : uses 1
@@ -364,4 +364,3 @@ classDiagram
     RenameService "1" --> "1" PatternRegistry : depends on
     RenameService "1" --> "1" ConflictResolver : depends on
     RenameService "1" --> "1" TargetCollection : depends on
-    RenameService "1" --> "1" NamespaceCache : depends on
