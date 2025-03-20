@@ -1,0 +1,150 @@
+---
+config:
+  layout: elk
+  theme: default
+  dagre:
+    ranksep: 100
+    nodesep: 100
+    edgesep: 10
+  direction: TD
+---
+
+classDiagram
+    namespace target_system {
+        class TargetRegistry {
+            -_instance: TargetRegistry
+            -_target_types: Dict[str, Type[IRenameTarget]]
+            +get_instance() TargetRegistry
+            +reset_instance() void
+            +register_target_type(type_name: str, target_class: Type[IRenameTarget]) void
+            +create_target(type_name: str, blender_obj: Any) IRenameTarget
+            +get_registered_target_types() List[str]
+            -_initialize_defaults() void
+        }
+
+        class IRenameTarget {
+            <<interface>>
+            +get_name() str
+            +set_name(name: str) void
+            +get_namespace_key() str
+            +target_type: str
+            +get_blender_object() Any
+            +create_namespace(context: Context) INamespace
+        }
+
+        class INamespace {
+            <<interface>>
+            +contains(name: str) bool
+            +add(name: str) void
+            +remove(name: str) void
+            +update(old: str, new: str) void
+        }
+
+        class TargetCollection {
+            -_context: Context
+            -_targets: List[IRenameTarget]
+            +__init__(context: Context)
+            +collect_by_type(target_type: str) List[IRenameTarget]
+            +collect_selected() List[IRenameTarget]
+            +collect_all() List[IRenameTarget]
+            +update_context(context: Context) void
+        }
+
+        class NamespaceCache {
+            -_context: Context
+            -_namespaces: Dict[Any, INamespace]
+            +__init__(context: Context)
+            +get_namespace(target: IRenameTarget) INamespace
+            +update_context(context: Context) void
+            +clear() void
+            +get_all_namespaces() List[INamespace]
+        }
+    }
+
+    namespace concrete_targets {
+        class BaseRenameTarget {
+            <<abstract>>
+            #_blender_obj: Any
+            +get_name() str
+            +set_name(name: str) void
+            +get_blender_object() Any
+            +create_namespace(context: Context) INamespace
+        }
+
+        class ObjectRenameTarget {
+            +target_type: str = "OBJECT"
+            +get_namespace_key() str
+            +create_namespace(context: Context) INamespace
+        }
+
+        class PoseBoneRenameTarget {
+            +target_type: str = "POSE_BONE" 
+            +get_namespace_key() str
+            +create_namespace(context: Context) INamespace
+        }
+
+        class MaterialRenameTarget {
+            +target_type: str = "MATERIAL"
+            +get_namespace_key() str
+            +create_namespace(context: Context) INamespace
+        }
+    }
+
+    namespace concrete_namespaces {
+        class Namespace {
+            -_context: Context
+            -_names: Set[str]
+            -_initializer: Optional[Callable]
+            +__init__(context: Context, initializer: Optional[Callable])
+            +contains(name: str) bool
+            +add(name: str) void
+            +remove(name: str) void
+            +update(old: str, new: str) void
+            -_initialize() void
+        }
+    }
+
+    namespace rename_system {
+        class RenameService {
+            -_pattern_registry: PatternRegistry
+            -_target_collection: TargetCollection
+            -_namespace_cache: NamespaceCache
+            -_conflict_resolver: ConflictResolver
+            +__init__(context: Context)
+            +update_context(context: Context) void
+            +prepare_batch(target_type: str, pattern_name: str) BatchRenameOperation
+            +execute_batch(batch_op: BatchRenameOperation) List[RenameResult]
+        }
+
+        class ConflictResolver {
+            -_namespace_cache: NamespaceCache
+            +STRATEGY_COUNTER: str = "counter"
+            +STRATEGY_FORCE: str = "force"
+            +resolve_name_conflict(target: IRenameTarget, pattern: NamingPattern, proposed_name: str, strategy: str) str
+            +apply_namespace_update(target: IRenameTarget, old_name: str, new_name: str) void
+            -_get_namespace(target: IRenameTarget) Optional[INamespace]
+            -_is_name_in_conflict(name: str, namespace: INamespace, target: IRenameTarget) bool
+            -_resolve_with_counter(pattern: NamingPattern, name: str, namespace: INamespace) str
+            -_resolve_with_force(name: str) str
+            -_find_conflicting_targets(target: IRenameTarget, name: str) List[IRenameTarget]
+        }
+    }
+
+    IRenameTarget <|-- BaseRenameTarget
+    BaseRenameTarget <|-- ObjectRenameTarget
+    BaseRenameTarget <|-- PoseBoneRenameTarget
+    BaseRenameTarget <|-- MaterialRenameTarget
+
+    INamespace <|-- Namespace
+
+    TargetRegistry ..> IRenameTarget : creates
+    TargetRegistry ..> INamespace : creates
+    IRenameTarget ..> INamespace : creates
+    BaseRenameTarget ..> TargetRegistry : uses
+    TargetCollection o-- IRenameTarget : contains
+    NamespaceCache o-- INamespace : caches
+    
+    RenameService --> TargetCollection : uses
+    RenameService --> NamespaceCache : uses
+    RenameService --> ConflictResolver : uses
+    ConflictResolver --> NamespaceCache : uses

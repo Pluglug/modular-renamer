@@ -165,9 +165,10 @@ classDiagram
             <<interface>>
             +get_name() str
             +set_name(name: str) void
-            +get_namespace_key() Any
+            +get_namespace_key() str
             +target_type: str
-            +blender_object: Any
+            +get_blender_object() Any
+            +create_namespace(context: Context) INamespace
         }
         class INamespace {
             <<interface>>
@@ -176,41 +177,46 @@ classDiagram
             +remove(name: str) void
             +update(old: str, new: str) void
         }
-        class NamespaceBase {
-            <<abstract>>
-            #names: Set[str]
+        class Namespace {
+            -_context: Context
+            -_names: Set[str]
+            -_initializer: Optional[Callable]
+            +__init__(context: Context, initializer: Optional[Callable])
             +contains(name: str) bool
             +add(name: str) void
             +remove(name: str) void
             +update(old: str, new: str) void
-            #_initialize() void
+            -_initialize() void
         }
-        class NamespaceManager {
-            -namespaces: Dict[Any, INamespace]
-            -_namespace_factories: Dict[str, Callable]
-            +register_namespace_type(type: str, factory: Callable) void
+        class NamespaceCache {
+            -_context: Context
+            -_namespaces: Dict[Any, INamespace]
+            +__init__(context: Context)
             +get_namespace(target: IRenameTarget) INamespace
+            +update_context(context: Context) void
+            +clear() void
+            +get_all_namespaces() List[INamespace]
         }
-        class CollectionStrategy {
-            <<interface>>
-            +collect(context: Context) List[IRenameTarget]
-        }
-        class TargetCollector {
-            -_strategies: Dict[str, CollectionStrategy]
-            +register_strategy(type: str, strategy: CollectionStrategy) void
-            +collect(type: str, context: Context) List[IRenameTarget]
-            +get_available_strategies() List[str]
+        class TargetCollection {
+            -_context: Context
+            -_targets: List[IRenameTarget]
+            +__init__(context: Context)
+            +collect_by_type(target_type: str) List[IRenameTarget]
+            +collect_selected() List[IRenameTarget]
+            +collect_all() List[IRenameTarget]
+            +update_context(context: Context) void
         }
         class ConflictResolver {
-            -namespace_manager: NamespaceManager
-            -resolved_conflicts: List[Dict]
-            +STRATEGY_COUNTER: str
-            +STRATEGY_FORCE: str
+            -_namespace_cache: NamespaceCache
+            +STRATEGY_COUNTER: str = "counter"
+            +STRATEGY_FORCE: str = "force"
             +resolve_name_conflict(target: IRenameTarget, pattern: NamingPattern, proposed_name: str, strategy: str) str
-            -_get_namespace(target: IRenameTarget) INamespace
+            +apply_namespace_update(target: IRenameTarget, old_name: str, new_name: str) void
+            -_get_namespace(target: IRenameTarget) Optional[INamespace]
             -_is_name_in_conflict(name: str, namespace: INamespace, target: IRenameTarget) bool
             -_resolve_with_counter(pattern: NamingPattern, name: str, namespace: INamespace) str
             -_resolve_with_force(name: str) str
+            -_find_conflicting_targets(target: IRenameTarget, name: str) List[IRenameTarget]
         }
         class RenameResult {
             +target: IRenameTarget
@@ -231,69 +237,39 @@ classDiagram
             +get_result_summary() str
         }
         class RenameService {
-            -pattern_registry: PatternRegistry
-            -conflict_resolver: ConflictResolver
-            -target_collector: TargetCollector
-            +prepare_batch(target_type: str, pattern_name: str, context: Context) BatchRenameOperation
-            +apply_element_updates(batch_op: BatchRenameOperation, updates: Dict) void
+            -_pattern_registry: PatternRegistry
+            -_target_collection: TargetCollection
+            -_namespace_cache: NamespaceCache
+            -_conflict_resolver: ConflictResolver
+            +__init__(context: Context)
+            +update_context(context: Context) void
+            +prepare_batch(target_type: str, pattern_name: str) BatchRenameOperation
             +execute_batch(batch_op: BatchRenameOperation) List[RenameResult]
-            +preview_batch(batch_op: BatchRenameOperation) List[RenameResult]
-            -_process_target(target: IRenameTarget, pattern: NamingPattern, strategy: str) RenameResult
-            -_apply_results(batch_op: BatchRenameOperation) void
         }
     }
     namespace targets {
-        class ObjectRenameTarget {
-            -obj: Object
+        class BaseRenameTarget {
+            <<abstract>>
+            #_blender_obj: Any
             +get_name() str
             +set_name(name: str) void
-            +get_namespace_key() Any
-            +target_type: str
-            +blender_object: Object
+            +get_blender_object() Any
+            +create_namespace(context: Context) INamespace
+        }
+        class ObjectRenameTarget {
+            +target_type: str = "OBJECT"
+            +get_namespace_key() str
+            +create_namespace(context: Context) INamespace
         }
         class PoseBoneRenameTarget {
-            -pose_bone: PoseBone
-            +get_name() str
-            +set_name(name: str) void
-            +get_namespace_key() Any
-            +target_type: str
-            +blender_object: PoseBone
+            +target_type: str = "POSE_BONE"
+            +get_namespace_key() str
+            +create_namespace(context: Context) INamespace
         }
         class MaterialRenameTarget {
-            -material: Material
-            +get_name() str
-            +set_name(name: str) void
-            +get_namespace_key() Any
-            +target_type: str
-            +blender_object: Material
-        }
-        class ObjectNamespace {
-            -scene: Scene
-            -names: Set[str]
-            +contains(name: str) bool
-            +add(name: str) void
-            +remove(name: str) void
-            +update(old: str, new: str) void
-            -_initialize() void
-        }
-        class BoneNamespace {
-            -armature: Armature
-            -names: Set[str]
-            +contains(name: str) bool
-            +add(name: str) void
-            +remove(name: str) void
-            +update(old: str, new: str) void
-            -_initialize() void
-        }
-        class SelectedObjectsStrategy {
-            +collect(context: Context) List[IRenameTarget]
-        }
-        class SelectedPoseBonesStrategy {
-            +collect(context: Context) List[IRenameTarget]
-        }
-        class ModifiersStrategy {
-            -obj: Object
-            +collect(context: Context) List[IRenameTarget]
+            +target_type: str = "MATERIAL"
+            +get_namespace_key() str
+            +create_namespace(context: Context) INamespace
         }
     }
     namespace ui {
@@ -351,15 +327,11 @@ classDiagram
     BaseCounter <|-- NumericCounter
     BaseCounter <|-- BlenderCounter
     BaseCounter <|-- AlphabeticCounter
-    IRenameTarget <|-- ObjectRenameTarget
-    IRenameTarget <|-- PoseBoneRenameTarget
-    IRenameTarget <|-- MaterialRenameTarget
-    INamespace <|-- NamespaceBase
-    NamespaceBase <|-- ObjectNamespace
-    NamespaceBase <|-- BoneNamespace
-    CollectionStrategy <|-- SelectedObjectsStrategy
-    CollectionStrategy <|-- SelectedPoseBonesStrategy
-    CollectionStrategy <|-- ModifiersStrategy
+    IRenameTarget <|-- BaseRenameTarget
+    BaseRenameTarget <|-- ObjectRenameTarget
+    BaseRenameTarget <|-- PoseBoneRenameTarget
+    BaseRenameTarget <|-- MaterialRenameTarget
+    INamespace <|-- Namespace
     ElementRegistry --> INameElement : creates >
     ElementRegistry --> ElementConfig : uses >
     NamingPattern --> INameElement : contains 1..*
@@ -368,10 +340,9 @@ classDiagram
     PatternConfigManager --> PatternRegistry : uses 1
     PatternConfigManager --> ElementRegistry : uses 1
     PatternConfigManager --> ElementConfig : creates >
-    NamespaceManager --> INamespace : manages *
-    TargetCollector --> CollectionStrategy : uses *
-    TargetCollector --> IRenameTarget : collects *
-    ConflictResolver --> NamespaceManager : uses 1
+    NamespaceCache --> INamespace : manages *
+    TargetCollection o-- IRenameTarget : contains
+    ConflictResolver --> NamespaceCache : uses 1
     ConflictResolver --> IRenameTarget : resolves for * 
     RenameResult --> IRenameTarget : references 1
     BatchRenameOperation --> IRenameTarget : contains *
@@ -379,7 +350,8 @@ classDiagram
     BatchRenameOperation --> NamingPattern : uses 1
     RenameService --> PatternRegistry : uses 1
     RenameService --> ConflictResolver : uses 1
-    RenameService --> TargetCollector : uses 1
+    RenameService --> TargetCollection : uses 1
+    RenameService --> NamespaceCache : uses 1
     RenameService --> BatchRenameOperation : creates >
     RenameService --> RenameResult : creates *
     RENAME_PT_main_panel --> RenameProperties : uses 1
@@ -387,8 +359,9 @@ classDiagram
     RENAME_UL_patterns --> PatternRegistry : displays 1
     NamingPattern "1" o-- "*" INameElement : contains
     PatternRegistry "1" o-- "*" NamingPattern : registers
-    NamespaceManager "1" o-- "*" INamespace : manages
-    TargetCollector "1" o-- "*" CollectionStrategy : uses
+    NamespaceCache "1" o-- "*" INamespace : caches
+    TargetCollection "1" o-- "*" IRenameTarget : contains
     RenameService "1" --> "1" PatternRegistry : depends on
     RenameService "1" --> "1" ConflictResolver : depends on
-    RenameService "1" --> "1" TargetCollector : depends on
+    RenameService "1" --> "1" TargetCollection : depends on
+    RenameService "1" --> "1" NamespaceCache : depends on
