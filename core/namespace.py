@@ -1,5 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, Set, List
+import inspect
+from typing import Any, Dict, Set, List, Type, Optional
+
+from bpy.types import Context
 
 from .rename_target import IRenameTarget
 
@@ -54,127 +57,109 @@ class INamespace(ABC):
         pass
 
 
-class NamespaceBase(INamespace):
+class Namespace(INamespace):
     """
-    INamespaceの基本実装
+    汎用名前空間コンテナ
     """
-
-    def __init__(self):
+    
+    def __init__(self, context: Context, initializer=None):
+        """
+        名前空間を初期化する
+        
+        Args:
+            context: Blenderコンテキスト
+            initializer: 名前集合を初期化する関数(context) -> Set[str]
+        """
+        self._context = context
+        self._names: Set[str] = set()
+        self._initializer = initializer
+        
+        if self._initializer:
+            self._initialize()
+    
+    def _initialize(self) -> None:
         """
         名前空間を初期化する
         """
-        self.names: Set[str] = set()
-        self._initialize()
-
-    @abstractmethod
-    def _initialize(self) -> None:
-        """
-        名前で名前空間を初期化する
-        """
-        pass
-
+        names = self._initializer(self._context)
+        if names:
+            self._names = set(names)
+    
     def contains(self, name: str) -> bool:
-        """
-        この名前空間に名前が存在するかチェックする
-
-        Args:
-            name: チェックする名前
-
-        Returns:
-            名前が存在する場合はTrue
-        """
-        return name in self.names
-
+        return name in self._names
+    
     def add(self, name: str) -> None:
-        """
-        この名前空間に名前を追加する
-
-        Args:
-            name: 追加する名前
-        """
-        self.names.add(name)
-
+        self._names.add(name)
+    
     def remove(self, name: str) -> None:
-        """
-        この名前空間から名前を削除する
-
-        Args:
-            name: 削除する名前
-        """
-        if name in self.names:
-            self.names.remove(name)
-
+        if name in self._names:
+            self._names.remove(name)
+    
     def update(self, old_name: str, new_name: str) -> None:
-        """
-        この名前空間の名前を更新する
-
-        Args:
-            old_name: 古い名前
-            new_name: 新しい名前
-        """
         self.remove(old_name)
         self.add(new_name)
 
 
-class NamespaceManager:
+class NamespaceCache:
     """
-    異なるターゲットタイプの名前空間を管理する
+    名前空間のキャッシュを管理する
     """
 
-    def __init__(self):
+    def __init__(self, context: Any):
         """
-        名前空間マネージャーを初期化する
-        """
-        self.namespaces: Dict[Any, INamespace] = {}
-        self._namespace_factories: Dict[str, Callable] = {}
-
-    def register_namespace_type(self, target_type: str, factory: Callable) -> None:
-        """
-        ターゲットタイプの名前空間ファクトリを登録する
+        名前空間キャッシュを初期化する
 
         Args:
-            target_type: ターゲットのタイプ
-            factory: ターゲットの名前空間を作成するファクトリ関数
+            context: Blenderコンテキスト
         """
-        self._namespace_factories[target_type] = factory
+        self._context = context
+        self._namespaces: Dict[Any, INamespace] = {}
 
     def get_namespace(self, target: IRenameTarget) -> INamespace:
         """
         ターゲットの名前空間を取得する
+        存在しない場合は作成してキャッシュする
 
         Args:
-            target: 名前空間を取得するターゲット
+            target: リネームターゲット
 
         Returns:
             ターゲットの名前空間
-
-        Raises:
-            KeyError: ターゲットタイプの名前空間ファクトリが登録されていない場合
         """
-        target_type = target.target_type
-        namespace_key = target.get_namespace_key()
+        key = target.get_namespace_key()
 
-        # 既存の名前空間がある場合は返す
-        if namespace_key in self.namespaces:
-            return self.namespaces[namespace_key]
+        # キャッシュにある場合はそれを返す
+        if key in self._namespaces:
+            return self._namespaces[key]
 
-        # 新しい名前空間を作成
-        if target_type not in self._namespace_factories:
-            raise KeyError(
-                f"ターゲットタイプの名前空間ファクトリが登録されていません: {target_type}"
-            )
+        # ターゲットに名前空間の作成を依頼
+        namespace = target.create_namespace(self._context)
+        if namespace:
+            self._namespaces[key] = namespace
+            return namespace
 
-        factory = self._namespace_factories[target_type]
-        namespace = factory(target)
-        self.namespaces[namespace_key] = namespace
+        # 作成に失敗した場合はエラー
+        raise KeyError(f"ターゲットの名前空間を作成できません: {target.target_type}")
 
-        return namespace
+    def update_context(self, context: Any) -> None:
+        """
+        コンテキストを更新する
+        これにより名前空間キャッシュがクリアされる
+
+        Args:
+            context: 新しいBlenderコンテキスト
+        """
+        self._context = context
+        self.clear()
+
+    def clear(self) -> None:
+        """
+        名前空間キャッシュをクリアする
+        """
+        self._namespaces.clear()
 
     def get_all_namespaces(self) -> List[INamespace]:
         """
-        管理している全ての名前空間のリストを取得する
-
-        Returns:
-            名前空間のリスト
+        キャッシュ内のすべての名前空間を取得する
         """
-        return list(self.namespaces.values())
+        return list(self._namespaces.values())
