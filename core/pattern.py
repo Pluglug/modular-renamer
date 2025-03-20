@@ -22,66 +22,36 @@ class NamingPattern:
 
     def __init__(
         self,
-        name: str,
-        target_type: str,
-        elements_config: List[ElementConfig],
-        element_registry: ElementRegistry,
+        id: str,
+        elements: List[INameElement],
     ):
         """
         命名パターンを初期化する
 
         Args:
-            name: パターンの名前
-            elements_config: 各要素の設定リスト
-            element_registry: 要素を作成するためのElementRegistry
+            id: パターンのID
+            elements: 各要素のリスト
         """
-        self.name = name
-        self.elements: List[INameElement] = []
+        self.id = id
+        self.elements = elements
 
-        self._load_elements(elements_config, element_registry)
+    # def get_element_by_id(self, element_id: str) -> INameElement:
+    #     """
+    #     指定されたIDの要素を取得する
 
-    def _load_elements(
-        self, elements_config: List[ElementConfig], element_registry: ElementRegistry
-    ) -> None:
-        """
-        設定から要素を読み込む
+    #     Args:
+    #         element_id: 取得する要素のID
 
-        Args:
-            elements_config: 要素設定のリスト
-            element_registry: 要素を作成するためのElementRegistry
-        """
-        for config in elements_config:
-            try:
-                element = element_registry.create_element(config)
-                self.elements.append(element)
-            except (KeyError, TypeError) as e:
-                log.error(f"要素の読み込み中にエラーが発生しました: {e}")
+    #     Returns:
+    #         INameElement: 見つかった要素
 
-        # かならずBlenderCounterを追加
-        if "blender_counter" not in [e.element_type for e in self.elements]:
-            element = element_registry.create_element(blender_counter_element_config)
-            self.elements.append(element)
-
-        # 要素を順序でソート
-        self.elements.sort(key=lambda e: e.order)
-
-    def get_element_by_id(self, element_id: str) -> INameElement:
-        """
-        指定されたIDの要素を取得する
-
-        Args:
-            element_id: 取得する要素のID
-
-        Returns:
-            INameElement: 見つかった要素
-
-        Raises:
-            ValueError: 要素が見つからない場合
-        """
-        for element in self.elements:
-            if element.id == element_id:
-                return element
-        raise ValueError(f"要素ID {element_id} が見つかりません")
+    #     Raises:
+    #         ValueError: 要素が見つからない場合
+    #     """
+    #     for element in self.elements:
+    #         if element.id == element_id:
+    #             return element
+    #     raise ValueError(f"要素ID {element_id} が見つかりません")
 
     def parse_name(self, name: str) -> None:
         """

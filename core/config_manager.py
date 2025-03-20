@@ -14,6 +14,7 @@ from .pattern_registry import PatternRegistry
 log = get_logger(__name__)
 
 
+# TODO: 廃止
 class PatternConfigManager:
     """
     パターン設定の読み込みと永続化を管理
