@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional, Set
 
-from .namespace import NamespaceManager, INamespace
+from .namespace import NamespaceCache, INamespace
 from .pattern import NamingPattern
 from .rename_target import IRenameTarget
 
@@ -14,12 +14,12 @@ class ConflictResolver:
     STRATEGY_COUNTER = "counter"  # カウンターを用いて解決
     STRATEGY_FORCE = "force"  # 強制上書き
 
-    def __init__(self, namespace_manager: NamespaceManager):
+    def __init__(self, namespace_manager: NamespaceCache):
         """
         コンフリクトリゾルバーを初期化する
 
         Args:
-            namespace_manager: NamespaceManagerインスタンス
+            namespace_manager: NamespaceCacheインスタンス
         """
         self.namespace_manager = namespace_manager
         self.resolved_conflicts: List[Dict] = []

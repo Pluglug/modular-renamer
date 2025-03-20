@@ -5,10 +5,10 @@
 import inspect
 from typing import Dict, List, Optional, Type
 
-from ..utils import logging
+from ..utils.logging import get_logger
 from .element import ElementConfig, INameElement
 
-log = logging.getLogger(__name__)
+log = get_logger(__name__)
 
 
 class ElementRegistry:

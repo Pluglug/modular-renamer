@@ -12,7 +12,7 @@ config:
 sequenceDiagram
     participant RenameService
     participant ConflictResolver
-    participant NamespaceManager
+    participant NamespaceCache
     participant Namespace
     participant IRenameTarget
     participant NamingPattern
@@ -21,10 +21,10 @@ sequenceDiagram
     ConflictResolver->>IRenameTarget: 名前空間キー取得
     IRenameTarget-->>ConflictResolver: キー返却（例：オブジェクト種別）
     
-    ConflictResolver->>NamespaceManager: 名前空間取得
-    NamespaceManager->>Namespace: 特定のNamespace取得
-    Namespace-->>NamespaceManager: Namespace返却
-    NamespaceManager-->>ConflictResolver: Namespace返却
+    ConflictResolver->>NamespaceCache: 名前空間取得
+    NamespaceCache->>Namespace: 特定のNamespace取得
+    Namespace-->>NamespaceCache: Namespace返却
+    NamespaceCache-->>ConflictResolver: Namespace返却
     
     ConflictResolver->>Namespace: 名前の重複チェック
     Namespace-->>ConflictResolver: 重複状態返却
@@ -49,18 +49,18 @@ sequenceDiagram
         end
     end
     
-    ConflictResolver->>NamespaceManager: シミュレーション名前空間を更新
-    NamespaceManager->>Namespace: 更新（実際のオブジェクトはまだ変更なし）
-    Namespace-->>NamespaceManager: 更新完了
-    NamespaceManager-->>ConflictResolver: 完了
+    ConflictResolver->>NamespaceCache: シミュレーション名前空間を更新
+    NamespaceCache->>Namespace: 更新（実際のオブジェクトはまだ変更なし）
+    Namespace-->>NamespaceCache: 更新完了
+    NamespaceCache-->>ConflictResolver: 完了
     
     ConflictResolver-->>RenameService: 解決済み名前返却
     
     Note over RenameService: すべてのターゲットの名前解決後
     
     RenameService->>ConflictResolver: apply_namespace_update(target, old_name, new_name)
-    ConflictResolver->>NamespaceManager: 実際の名前空間更新
-    NamespaceManager->>Namespace: 更新
-    Namespace-->>NamespaceManager: 更新完了
-    NamespaceManager-->>ConflictResolver: 完了
+    ConflictResolver->>NamespaceCache: 実際の名前空間更新
+    NamespaceCache->>Namespace: 更新
+    Namespace-->>NamespaceCache: 更新完了
+    NamespaceCache-->>ConflictResolver: 完了
     ConflictResolver-->>RenameService: 更新完了

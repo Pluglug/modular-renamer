@@ -15,7 +15,7 @@
         participant PatternRegistry
         participant NamingPattern
         participant ConflictResolver
-        participant NamespaceManager
+        participant NamespaceCache
         
         ユーザー->>RENAME_OT_execute: リネーム実行操作
         RENAME_OT_execute->>RenameService: prepare_batch()
@@ -37,8 +37,8 @@
             NamingPattern-->>RenameService: 提案名返却
             
             RenameService->>ConflictResolver: 重複チェック・解決依頼
-            ConflictResolver->>NamespaceManager: 名前空間取得
-            NamespaceManager-->>ConflictResolver: 名前空間返却
+            ConflictResolver->>NamespaceCache: 名前空間取得
+            NamespaceCache-->>ConflictResolver: 名前空間返却
             
             opt 重複あり
                 ConflictResolver->>NamingPattern: カウンター要素取得
@@ -46,8 +46,8 @@
                 NamingPattern-->>ConflictResolver: 更新された名前返却
                 
                 loop 重複が解消されるまで
-                    ConflictResolver->>NamespaceManager: 重複再チェック
-                    NamespaceManager-->>ConflictResolver: 結果返却
+                    ConflictResolver->>NamespaceCache: 重複再チェック
+                    NamespaceCache-->>ConflictResolver: 結果返却
                     
                     opt まだ重複している場合
                         ConflictResolver->>NamingPattern: カウンター要素を再度increment()
@@ -56,8 +56,8 @@
                 end
             end
             
-            ConflictResolver->>NamespaceManager: シミュレーション名前空間を即時更新
-            NamespaceManager-->>ConflictResolver: 更新完了
+            ConflictResolver->>NamespaceCache: シミュレーション名前空間を即時更新
+            NamespaceCache-->>ConflictResolver: 更新完了
             ConflictResolver-->>RenameService: 解決済み名前返却
             
             RenameService->>RenameService: リネーム結果を記録（実際のBlenderオブジェクトはまだ更新しない）
@@ -68,8 +68,8 @@
             IRenameTarget-->>RenameService: 適用完了
             
             RenameService->>ConflictResolver: 実際の名前空間更新
-            ConflictResolver->>NamespaceManager: 更新実行
-            NamespaceManager-->>ConflictResolver: 更新完了
+            ConflictResolver->>NamespaceCache: 更新実行
+            NamespaceCache-->>ConflictResolver: 更新完了
             ConflictResolver-->>RenameService: 更新完了
         end
         
@@ -85,7 +85,7 @@
     sequenceDiagram
         participant RenameService
         participant ConflictResolver
-        participant NamespaceManager
+        participant NamespaceCache
         participant Namespace
         participant IRenameTarget
         participant NamingPattern
@@ -94,10 +94,10 @@
         ConflictResolver->>IRenameTarget: 名前空間キー取得
         IRenameTarget-->>ConflictResolver: キー返却（例：オブジェクト種別）
         
-        ConflictResolver->>NamespaceManager: 名前空間取得
-        NamespaceManager->>Namespace: 特定のNamespace取得
-        Namespace-->>NamespaceManager: Namespace返却
-        NamespaceManager-->>ConflictResolver: Namespace返却
+        ConflictResolver->>NamespaceCache: 名前空間取得
+        NamespaceCache->>Namespace: 特定のNamespace取得
+        Namespace-->>NamespaceCache: Namespace返却
+        NamespaceCache-->>ConflictResolver: Namespace返却
         
         ConflictResolver->>Namespace: 名前の重複チェック
         Namespace-->>ConflictResolver: 重複状態返却
@@ -122,20 +122,20 @@
             end
         end
         
-        ConflictResolver->>NamespaceManager: シミュレーション名前空間を更新
-        NamespaceManager->>Namespace: 更新（実際のオブジェクトはまだ変更なし）
-        Namespace-->>NamespaceManager: 更新完了
-        NamespaceManager-->>ConflictResolver: 完了
+        ConflictResolver->>NamespaceCache: シミュレーション名前空間を更新
+        NamespaceCache->>Namespace: 更新（実際のオブジェクトはまだ変更なし）
+        Namespace-->>NamespaceCache: 更新完了
+        NamespaceCache-->>ConflictResolver: 完了
         
         ConflictResolver-->>RenameService: 解決済み名前返却
         
         Note over RenameService: すべてのターゲットの名前解決後
         
         RenameService->>ConflictResolver: apply_namespace_update(target, old_name, new_name)
-        ConflictResolver->>NamespaceManager: 実際の名前空間更新
-        NamespaceManager->>Namespace: 更新
-        Namespace-->>NamespaceManager: 更新完了
-        NamespaceManager-->>ConflictResolver: 完了
+        ConflictResolver->>NamespaceCache: 実際の名前空間更新
+        NamespaceCache->>Namespace: 更新
+        Namespace-->>NamespaceCache: 更新完了
+        NamespaceCache-->>ConflictResolver: 完了
         ConflictResolver-->>RenameService: 更新完了
 
 
@@ -145,6 +145,8 @@
     :zoom:
 
     classDiagram
+        direction TD
+        %% 要素関連のコンポーネント
         namespace core_elements {
             class ElementConfig {
                 +type: str
@@ -201,6 +203,8 @@
                 #_parse_value(value_str: str) int
             }
         }
+
+        %% 具体的な要素
         namespace elements {
             class TextElement {
                 +items: List[str]
@@ -254,6 +258,57 @@
                 #generate_random_value() tuple[str, str]
             }
         }
+
+        %% ターゲットシステム
+        namespace core {
+            class IRenameTarget {
+                <<interface>>
+                +get_name() str
+                +set_name(name: str) void
+                +get_namespace_key() str
+                +target_type: str
+                +get_blender_object() Any
+                +create_namespace(context: Context) INamespace
+            }
+            class INamespace {
+                <<interface>>
+                +contains(name: str) bool
+                +add(name: str) void
+                +remove(name: str) void
+                +update(old: str, new: str) void
+            }
+            class Namespace {
+                -_context: Context
+                -_names: Set[str]
+                -_initializer: Optional[Callable]
+                +__init__(context: Context, initializer: Optional[Callable])
+                +contains(name: str) bool
+                +add(name: str) void
+                +remove(name: str) void
+                +update(old: str, new: str) void
+                -_initialize() void
+            }
+            class NamespaceCache {
+                -_context: Context
+                -_namespaces: Dict[Any, INamespace]
+                +__init__(context: Context)
+                +get_namespace(target: IRenameTarget) INamespace
+                +update_context(context: Context) void
+                +clear() void
+                +get_all_namespaces() List[INamespace]
+            }
+            class TargetCollection {
+                -_context: Context
+                -_targets: List[IRenameTarget]
+                +__init__(context: Context)
+                +collect_by_type(target_type: str) List[IRenameTarget]
+                +collect_selected() List[IRenameTarget]
+                +collect_all() List[IRenameTarget]
+                +update_context(context: Context) void
+            }
+        }
+
+        %% パターンシステム
         namespace core {
             class ElementRegistry {
                 -_element_types: Dict[str, Type]
@@ -296,57 +351,18 @@
                 +save_all_patterns(file_path: str) void
                 -_convert_to_element_config(element_data: Dict) ElementConfig
             }
-            class IRenameTarget {
-                <<interface>>
-                +get_name() str
-                +set_name(name: str) void
-                +get_namespace_key() Any
-                +target_type: str
-                +blender_object: Any
-            }
-            class INamespace {
-                <<interface>>
-                +contains(name: str) bool
-                +add(name: str) void
-                +remove(name: str) void
-                +update(old: str, new: str) void
-            }
-            class NamespaceBase {
-                <<abstract>>
-                #names: Set[str]
-                +contains(name: str) bool
-                +add(name: str) void
-                +remove(name: str) void
-                +update(old: str, new: str) void
-                #_initialize() void
-            }
-            class NamespaceManager {
-                -namespaces: Dict[Any, INamespace]
-                -_namespace_factories: Dict[str, Callable]
-                +register_namespace_type(type: str, factory: Callable) void
-                +get_namespace(target: IRenameTarget) INamespace
-            }
-            class CollectionStrategy {
-                <<interface>>
-                +collect(context: Context) List[IRenameTarget]
-            }
-            class TargetCollector {
-                -_strategies: Dict[str, CollectionStrategy]
-                +register_strategy(type: str, strategy: CollectionStrategy) void
-                +collect(type: str, context: Context) List[IRenameTarget]
-                +get_available_strategies() List[str]
-            }
+        }
+
+        %% リネームサービス
+        namespace core {
             class ConflictResolver {
-                -namespace_manager: NamespaceManager
-                -resolved_conflicts: List[Dict]
-                +STRATEGY_COUNTER: str
-                +STRATEGY_FORCE: str
+                -_namespace_cache: NamespaceCache
+                +STRATEGY_COUNTER: str = "counter"
+                +STRATEGY_FORCE: str = "force"
                 +resolve_name_conflict(target: IRenameTarget, pattern: NamingPattern, proposed_name: str, strategy: str) str
-                +simulate_namespace_update(target: IRenameTarget, old_name: str, new_name: str) void
                 +apply_namespace_update(target: IRenameTarget, old_name: str, new_name: str) void
-                +reset_simulation() void
-                -_get_namespace(target: IRenameTarget) INamespace
-                -_is_name_in_conflict(name: str, namespace: INamespace) bool
+                -_get_namespace(target: IRenameTarget) Optional[INamespace]
+                -_is_name_in_conflict(name: str, namespace: INamespace, target: IRenameTarget) bool
                 -_resolve_with_counter(pattern: NamingPattern, name: str, namespace: INamespace) str
                 -_resolve_with_force(name: str) str
                 -_find_conflicting_targets(target: IRenameTarget, name: str) List[IRenameTarget]
@@ -370,71 +386,45 @@
                 +get_result_summary() str
             }
             class RenameService {
-                -pattern_registry: PatternRegistry
-                -conflict_resolver: ConflictResolver
-                -target_collector: TargetCollector
-                +prepare_batch(target_type: str, pattern_name: str, context: Context) BatchRenameOperation
-                +apply_element_updates(batch_op: BatchRenameOperation, updates: Dict) void
+                -_pattern_registry: PatternRegistry
+                -_target_collection: TargetCollection
+                -_namespace_cache: NamespaceCache
+                -_conflict_resolver: ConflictResolver
+                +__init__(context: Context)
+                +update_context(context: Context) void
+                +prepare_batch(target_type: str, pattern_name: str) BatchRenameOperation
                 +execute_batch(batch_op: BatchRenameOperation) List[RenameResult]
-                +preview_batch(batch_op: BatchRenameOperation) List[RenameResult]
-                -_process_target(target: IRenameTarget, pattern: NamingPattern, strategy: str) RenameResult
-                -_apply_results(batch_op: BatchRenameOperation) void
             }
         }
+
+        %% 具体的な実装
         namespace targets {
-            class ObjectRenameTarget {
-                -obj: Object
+            class BaseRenameTarget {
+                <<abstract>>
+                #_blender_obj: Any
                 +get_name() str
                 +set_name(name: str) void
-                +get_namespace_key() Any
-                +target_type: str
-                +blender_object: Object
+                +get_blender_object() Any
+                +create_namespace(context: Context) INamespace
+            }
+            class ObjectRenameTarget {
+                +target_type: str = "OBJECT"
+                +get_namespace_key() str
+                +create_namespace(context: Context) INamespace
             }
             class PoseBoneRenameTarget {
-                -pose_bone: PoseBone
-                +get_name() str
-                +set_name(name: str) void
-                +get_namespace_key() Any
-                +target_type: str
-                +blender_object: PoseBone
+                +target_type: str = "POSE_BONE"
+                +get_namespace_key() str
+                +create_namespace(context: Context) INamespace
             }
             class MaterialRenameTarget {
-                -material: Material
-                +get_name() str
-                +set_name(name: str) void
-                +get_namespace_key() Any
-                +target_type: str
-                +blender_object: Material
-            }
-            class ObjectNamespace {
-                -scene: Scene
-                -names: Set[str]
-                +contains(name: str) bool
-                +add(name: str) void
-                +remove(name: str) void
-                +update(old: str, new: str) void
-                -_initialize() void
-            }
-            class BoneNamespace {
-                -armature: Armature
-                -names: Set[str]
-                +contains(name: str) bool
-                +add(name: str) void
-                +remove(name: str) void
-                +update(old: str, new: str) void
-                -_initialize() void
-            }
-            class SelectedObjectsStrategy {
-                +collect(context: Context) List[IRenameTarget]
-            }
-            class SelectedPoseBonesStrategy {
-                +collect(context: Context) List[IRenameTarget]
-            }
-            class ModifiersStrategy {
-                -obj: Object
-                +collect(context: Context) List[IRenameTarget]
+                +target_type: str = "MATERIAL"
+                +get_namespace_key() str
+                +create_namespace(context: Context) INamespace
             }
         }
+
+        %% UI
         namespace ui {
             class RenameSettings {
                 +default_target_type: str
@@ -465,6 +455,8 @@
                 +draw_item(context: Context, layout: UILayout, data, item, icon, active_data, active_propname, index: int) void
             }
         }
+
+        %% ユーティリティ
         namespace utils {
             class ModularLogger {
                 +log_level: int
@@ -482,23 +474,23 @@
                 +get_export_dir() str
             }
         }
-        INameElement <|-- BaseElement
+
+        %% 継承関係
+        INameElement <|.. BaseElement : implements
         BaseElement <|-- TextElement
         BaseElement <|-- PositionElement
         BaseElement <|-- BaseCounter
-        ICounter <|-- BaseCounter
+        ICounter <|.. BaseCounter : implements
         BaseCounter <|-- NumericCounter
         BaseCounter <|-- BlenderCounter
         BaseCounter <|-- AlphabeticCounter
-        IRenameTarget <|-- ObjectRenameTarget
-        IRenameTarget <|-- PoseBoneRenameTarget
-        IRenameTarget <|-- MaterialRenameTarget
-        INamespace <|-- NamespaceBase
-        NamespaceBase <|-- ObjectNamespace
-        NamespaceBase <|-- BoneNamespace
-        CollectionStrategy <|-- SelectedObjectsStrategy
-        CollectionStrategy <|-- SelectedPoseBonesStrategy
-        CollectionStrategy <|-- ModifiersStrategy
+        IRenameTarget <|.. BaseRenameTarget
+        BaseRenameTarget <|-- ObjectRenameTarget
+        BaseRenameTarget <|-- PoseBoneRenameTarget
+        BaseRenameTarget <|-- MaterialRenameTarget
+        INamespace <|.. Namespace
+
+        %% 依存関係と関連
         ElementRegistry --> INameElement : creates >
         ElementRegistry --> ElementConfig : uses >
         NamingPattern --> INameElement : contains 1..*
@@ -507,27 +499,37 @@
         PatternConfigManager --> PatternRegistry : uses 1
         PatternConfigManager --> ElementRegistry : uses 1
         PatternConfigManager --> ElementConfig : creates >
-        NamespaceManager --> INamespace : manages *
-        TargetCollector --> CollectionStrategy : uses *
-        TargetCollector --> IRenameTarget : collects *
-        ConflictResolver --> NamespaceManager : uses 1
+        
+        NamespaceCache --> INamespace : manages *
+        NamespaceCache --> IRenameTarget : uses create_namespace
+        TargetCollection o-- IRenameTarget : contains
+        
+        ConflictResolver --> NamespaceCache : uses 1
         ConflictResolver --> IRenameTarget : resolves for * 
+        ConflictResolver --> NamingPattern : uses for conflict resolution
+        
         RenameResult --> IRenameTarget : references 1
         BatchRenameOperation --> IRenameTarget : contains *
         BatchRenameOperation --> RenameResult : produces *
         BatchRenameOperation --> NamingPattern : uses 1
+        
         RenameService --> PatternRegistry : uses 1
         RenameService --> ConflictResolver : uses 1
-        RenameService --> TargetCollector : uses 1
+        RenameService --> TargetCollection : uses 1
         RenameService --> BatchRenameOperation : creates >
         RenameService --> RenameResult : creates *
+        
         RENAME_PT_main_panel --> RenameProperties : uses 1
         RENAME_OT_execute --> RenameService : uses 1
         RENAME_UL_patterns --> PatternRegistry : displays 1
+
+        %% コンポジション関係
         NamingPattern "1" o-- "*" INameElement : contains
         PatternRegistry "1" o-- "*" NamingPattern : registers
-        NamespaceManager "1" o-- "*" INamespace : manages
-        TargetCollector "1" o-- "*" CollectionStrategy : uses
+        NamespaceCache "1" o-- "*" INamespace : caches
+        TargetCollection "1" o-- "*" IRenameTarget : contains
+        
+        %% 依存関係（詳細）
         RenameService "1" --> "1" PatternRegistry : depends on
         RenameService "1" --> "1" ConflictResolver : depends on
-        RenameService "1" --> "1" TargetCollector : depends on
+        RenameService "1" --> "1" TargetCollection : depends on

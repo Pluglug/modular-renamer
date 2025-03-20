@@ -4,8 +4,6 @@ from typing import Any, Dict, Set, List, Type, Optional
 
 from bpy.types import Context
 
-from .rename_target import IRenameTarget
-
 
 class INamespace(ABC):
     """
@@ -61,11 +59,11 @@ class Namespace(INamespace):
     """
     汎用名前空間コンテナ
     """
-    
+
     def __init__(self, context: Context, initializer=None):
         """
         名前空間を初期化する
-        
+
         Args:
             context: Blenderコンテキスト
             initializer: 名前集合を初期化する関数(context) -> Set[str]
@@ -73,10 +71,10 @@ class Namespace(INamespace):
         self._context = context
         self._names: Set[str] = set()
         self._initializer = initializer
-        
+
         if self._initializer:
             self._initialize()
-    
+
     def _initialize(self) -> None:
         """
         名前空間を初期化する
@@ -84,17 +82,17 @@ class Namespace(INamespace):
         names = self._initializer(self._context)
         if names:
             self._names = set(names)
-    
+
     def contains(self, name: str) -> bool:
         return name in self._names
-    
+
     def add(self, name: str) -> None:
         self._names.add(name)
-    
+
     def remove(self, name: str) -> None:
         if name in self._names:
             self._names.remove(name)
-    
+
     def update(self, old_name: str, new_name: str) -> None:
         self.remove(old_name)
         self.add(new_name)
@@ -115,7 +113,7 @@ class NamespaceCache:
         self._context = context
         self._namespaces: Dict[Any, INamespace] = {}
 
-    def get_namespace(self, target: IRenameTarget) -> INamespace:
+    def get_namespace(self, target: "IRenameTarget") -> INamespace:
         """
         ターゲットの名前空間を取得する
         存在しない場合は作成してキャッシュする

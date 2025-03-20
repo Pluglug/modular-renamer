@@ -2,36 +2,41 @@
 
 # ConflictResolverはIRenameTargetをNamespaceMngに渡す→NSMはTrgに紐づくNSを初期化、既に初期化されていれば継続して利用する。→ NSMがCRに結果を返す。→CRは重複があればNamingPatternにカウンターのインクリメントを指示する。→再度NSMへ照会し、重複が解消されるまで、繰り返す。→重複が解消されたら、NSMにNSの更新を依頼し、FinalNameを呼び出し元に返す。
 
+
 class RenameService:
-    def execute_batch(self, targets: List[IRenameTarget], pattern: NamingPattern, strategy: str) -> List[RenameResult]:
+    def execute_batch(
+        self, targets: List[IRenameTarget], pattern: NamingPattern, strategy: str
+    ) -> List[RenameResult]:
         """
         一括リネームを実行する
         """
         results = []
-        
+
         # 1. 各ターゲットについて名前を解決
         for target in targets:
             # 1.1 パターンから提案名を生成
             proposed_name = pattern.render_name()
-            
+
             # 1.2 競合を解決（名前空間の更新も内部で行われる）
             final_name = self.conflict_resolver.resolve_name_conflict(
                 target, pattern, proposed_name, strategy
             )
-            
+
             # 1.3 結果を記録
-            results.append(RenameResult(
-                target=target,
-                original_name=target.get_name(),
-                proposed_name=proposed_name,
-                final_name=final_name,
-                success=True
-            ))
-        
+            results.append(
+                RenameResult(
+                    target=target,
+                    original_name=target.get_name(),
+                    proposed_name=proposed_name,
+                    final_name=final_name,
+                    success=True,
+                )
+            )
+
         # 2. 解決済みの名前を実際のBlenderオブジェクトに適用
         for result in results:
             result.target.set_name(result.final_name)
-        
+
         return results
 
 
@@ -46,29 +51,12 @@ pattern = service.pattern_registry.get_pattern("my_pattern")
 
 # 3. 一括リネームの実行
 results = service.execute_batch(
-    targets=targets,
-    pattern=pattern,
-    strategy=ConflictResolver.STRATEGY_COUNTER
+    targets=targets, pattern=pattern, strategy=ConflictResolver.STRATEGY_COUNTER
 )
 
 # 4. 結果の確認
 for result in results:
     print(f"{result.original_name} -> {result.final_name}")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 class ConflictResolver:
@@ -142,17 +130,18 @@ class ConflictResolver:
 
         return f"{name}_unsolved_conflict"
 
+
 class NamespaceManager:
     def get_namespace(self, target: IRenameTarget) -> INamespace:
         """
         ターゲットに紐づく名前空間を取得（なければ初期化）
         """
         key = target.get_namespace_key()
-        
+
         # 既存の名前空間があれば返す
         if key in self.namespaces:
             return self.namespaces[key]
-            
+
         # 新しい名前空間を初期化
         namespace = self._create_namespace(target)
         self.namespaces[key] = namespace
@@ -166,6 +155,7 @@ class NamespaceManager:
         if not factory:
             raise ValueError(f"Unknown target type: {target.target_type}")
         return factory(target)
+
 
 """
 # 混乱の原因分析と改善案レポート

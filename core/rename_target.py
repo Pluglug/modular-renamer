@@ -11,7 +11,6 @@ from bpy.types import Context
 
 from ..utils.logging import get_logger
 from ..utils.strings_utils import is_pascal_case, to_snake_case
-from .namespace import INamespace, NamespaceCache
 
 log = get_logger(__name__)
 
@@ -64,7 +63,7 @@ class IRenameTarget(ABC):
         pass
 
     @abstractmethod
-    def create_namespace(self, context: Any) -> INamespace:
+    def create_namespace(self, context: Any) -> "INamespace":
         """
         このターゲットの名前空間を作成する
 
@@ -106,7 +105,7 @@ class BaseRenameTarget(IRenameTarget):
         return self._blender_obj
 
     @abstractmethod
-    def create_namespace(self, context: Context) -> INamespace:
+    def create_namespace(self, context: Context) -> "INamespace":
         """
         このターゲットの型に対応する名前空間を作成する
         サブクラスでオーバーライドする必要がある
@@ -179,7 +178,6 @@ class TargetRegistry:
         """
         self._target_types[type_name] = target_class
 
-
     def create_target(
         self, type_name: str, blender_obj: Any
     ) -> Optional[IRenameTarget]:
@@ -197,7 +195,6 @@ class TargetRegistry:
         if not target_class:
             return None
         return target_class(blender_obj)
-
 
     def get_registered_target_types(self) -> List[str]:
         """

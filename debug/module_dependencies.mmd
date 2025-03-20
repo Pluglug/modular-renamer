@@ -5,10 +5,11 @@ config:
     curve: basis
 ---
 flowchart TD
+    core_config_manager(core.config_manager)
     core_conflict_resolver(core.conflict_resolver)
     core_constants(core.constants)
-    core_element_registry(core.element_registry)
     core_element(core.element)
+    core_element_registry(core.element_registry)
     core_namespace(core.namespace)
     core_pattern(core.pattern)
     core_pattern_registry(core.pattern_registry)
@@ -18,21 +19,32 @@ flowchart TD
     preferences[preferences]
     utils_logging(utils.logging)
     utils_regex_utils(utils.regex_utils)
+    utils_strings_utils(utils.strings_utils)
+    core_config_manager --> core_element_registry
+    core_config_manager --> core_element
+    core_config_manager --> utils_logging
+    core_config_manager --> core_pattern_registry
+    core_config_manager --> core_pattern
     core_conflict_resolver --> core_rename_target
     core_conflict_resolver --> core_namespace
-    core_element_registry --> core_element
+    core_conflict_resolver --> core_pattern
+    core_element --> utils_strings_utils
     core_element --> utils_logging
-    core_namespace --> core_rename_target
+    core_element_registry --> core_element
+    core_element_registry --> utils_logging
     core_pattern --> core_element
+    core_pattern --> utils_logging
     core_pattern --> core_element_registry
-    core_pattern_registry --> core_element_registry
     core_pattern_registry --> core_pattern
-    core_rename_service --> core_namespace
-    core_rename_service --> core_pattern_registry
-    core_rename_service --> core_conflict_resolver
-    core_rename_service --> core_pattern
     core_rename_service --> core_rename_target
+    core_rename_service --> core_namespace
+    core_rename_service --> core_conflict_resolver
+    core_rename_service --> core_target_collector
+    core_rename_service --> core_pattern_registry
+    core_rename_service --> core_pattern
+    core_rename_target --> utils_strings_utils
+    core_rename_target --> utils_logging
     core_target_collector --> core_rename_target
-    preferences --> core_constants
     preferences --> utils_logging
+    preferences --> core_constants
     utils_regex_utils --> core_constants

@@ -1,15 +1,12 @@
 ---
 config:
+  theme: neutral
+  look: classic
   layout: elk
-  theme: default
-  dagre:
-    ranksep: 100
-    nodesep: 100
-    edgesep: 10
-  direction: TD
 ---
 
 classDiagram
+    direction TD
     %% 要素関連のコンポーネント
     namespace core_elements {
         class ElementConfig {
@@ -340,19 +337,19 @@ classDiagram
     }
 
     %% 継承関係
-    INameElement <|-- BaseElement
+    INameElement <|.. BaseElement : implements
     BaseElement <|-- TextElement
     BaseElement <|-- PositionElement
     BaseElement <|-- BaseCounter
-    ICounter <|-- BaseCounter
+    ICounter <|.. BaseCounter : implements
     BaseCounter <|-- NumericCounter
     BaseCounter <|-- BlenderCounter
     BaseCounter <|-- AlphabeticCounter
-    IRenameTarget <|-- BaseRenameTarget
+    IRenameTarget <|.. BaseRenameTarget
     BaseRenameTarget <|-- ObjectRenameTarget
     BaseRenameTarget <|-- PoseBoneRenameTarget
     BaseRenameTarget <|-- MaterialRenameTarget
-    INamespace <|-- Namespace
+    INamespace <|.. Namespace
 
     %% 依存関係と関連
     ElementRegistry --> INameElement : creates >

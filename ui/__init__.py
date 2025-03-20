@@ -10,14 +10,14 @@ from bpy.props import (
 )
 
 from ..addon import prefs
-from ..core import NamespaceManager, NamingProcessor, PoseBoneObject, debug_log
+from ..core import NamespaceCache, NamingProcessor, PoseBoneObject, debug_log
 from ..preferences import ELEMENT_TYPE_ITEMS, POSITION_ENUM_ITEMS
 from ..utils.logging import get_logger
 
 log = get_logger(__name__)
 
 # Global namespace manager
-namespace_manager = NamespaceManager()
+namespace_manager = NamespaceCache()
 
 
 class MODRENAMER_OT_AddRemoveNameElement(bpy.types.Operator):

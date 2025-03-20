@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from .conflict_resolver import ConflictResolver
-from .namespace import NamespaceManager
+from .namespace import NamespaceCache
 from .pattern import NamingPattern
 from .pattern_registry import PatternRegistry
 from .rename_target import IRenameTarget

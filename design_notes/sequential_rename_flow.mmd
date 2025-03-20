@@ -18,7 +18,7 @@ sequenceDiagram
     participant PatternRegistry
     participant NamingPattern
     participant ConflictResolver
-    participant NamespaceManager
+    participant NamespaceCache
     
     ユーザー->>RENAME_OT_execute: リネーム実行操作
     RENAME_OT_execute->>RenameService: prepare_batch()
@@ -40,8 +40,8 @@ sequenceDiagram
         NamingPattern-->>RenameService: 提案名返却
         
         RenameService->>ConflictResolver: 重複チェック・解決依頼
-        ConflictResolver->>NamespaceManager: 名前空間取得
-        NamespaceManager-->>ConflictResolver: 名前空間返却
+        ConflictResolver->>NamespaceCache: 名前空間取得
+        NamespaceCache-->>ConflictResolver: 名前空間返却
         
         opt 重複あり
             ConflictResolver->>NamingPattern: カウンター要素取得
@@ -49,8 +49,8 @@ sequenceDiagram
             NamingPattern-->>ConflictResolver: 更新された名前返却
             
             loop 重複が解消されるまで
-                ConflictResolver->>NamespaceManager: 重複再チェック
-                NamespaceManager-->>ConflictResolver: 結果返却
+                ConflictResolver->>NamespaceCache: 重複再チェック
+                NamespaceCache-->>ConflictResolver: 結果返却
                 
                 opt まだ重複している場合
                     ConflictResolver->>NamingPattern: カウンター要素を再度increment()
@@ -59,8 +59,8 @@ sequenceDiagram
             end
         end
         
-        ConflictResolver->>NamespaceManager: シミュレーション名前空間を即時更新
-        NamespaceManager-->>ConflictResolver: 更新完了
+        ConflictResolver->>NamespaceCache: シミュレーション名前空間を即時更新
+        NamespaceCache-->>ConflictResolver: 更新完了
         ConflictResolver-->>RenameService: 解決済み名前返却
         
         RenameService->>RenameService: リネーム結果を記録（実際のBlenderオブジェクトはまだ更新しない）
@@ -71,8 +71,8 @@ sequenceDiagram
         IRenameTarget-->>RenameService: 適用完了
         
         RenameService->>ConflictResolver: 実際の名前空間更新
-        ConflictResolver->>NamespaceManager: 更新実行
-        NamespaceManager-->>ConflictResolver: 更新完了
+        ConflictResolver->>NamespaceCache: 更新実行
+        NamespaceCache-->>ConflictResolver: 更新完了
         ConflictResolver-->>RenameService: 更新完了
     end
     
