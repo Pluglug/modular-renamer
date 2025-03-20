@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
+from bpy.types import Context
+
 from .conflict_resolver import ConflictResolver
 from .namespace import NamespaceCache
 from .pattern import NamingPattern
@@ -71,21 +73,14 @@ class RenameService:
 
     def __init__(
         self,
-        pattern_registry: PatternRegistry,
-        conflict_resolver: ConflictResolver,
-        target_collector: TargetCollector,
+        context: Context,
     ):
         """
         リネームサービスを初期化する
-
-        Args:
-            pattern_registry: PatternRegistryインスタンス
-            conflict_resolver: ConflictResolverインスタンス
-            target_collector: TargetCollectorインスタンス
         """
-        self.pattern_registry = pattern_registry
-        self.conflict_resolver = conflict_resolver
-        self.target_collector = target_collector
+        self._target_collector = TargetCollector(context)
+        self._pattern_registry = PatternRegistry()
+        self._conflict_resolver = ConflictResolver()
 
     def prepare_batch(
         self, target_type: str, pattern_name: str, context: Any

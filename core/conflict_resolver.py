@@ -14,14 +14,14 @@ class ConflictResolver:
     STRATEGY_COUNTER = "counter"  # カウンターを用いて解決
     STRATEGY_FORCE = "force"  # 強制上書き
 
-    def __init__(self, namespace_manager: NamespaceCache):
+    def __init__(self, namespace_cache: NamespaceCache):
         """
         コンフリクトリゾルバーを初期化する
 
         Args:
-            namespace_manager: NamespaceCacheインスタンス
+            namespace_cache: NamespaceCacheインスタンス
         """
-        self.namespace_manager = namespace_manager
+        self.namespace_cache = namespace_cache
         self.resolved_conflicts: List[Dict] = []
 
     def resolve_name_conflict(
@@ -103,7 +103,7 @@ class ConflictResolver:
             名前空間、または取得できない場合はNone
         """
         try:
-            return self.namespace_manager.get_namespace(target)
+            return self.namespace_cache.get_namespace(target)
         except Exception:
             return None
 
