@@ -184,7 +184,7 @@ classDiagram
             -_initialize_default_elements() void
         }
         class NamingPattern {
-            +name: str
+            +id: str
             +elements: List[INameElement]
             +parse_name(name: str) void
             +update_elements(updates: Dict) void
@@ -192,25 +192,45 @@ classDiagram
             +validate() List[str]
             +get_element_by_id(element_id: str) INameElement
             +gen_test_names(random: bool, num_cases: int) List[str]
-            -_load_elements(config: List, element_registry: ElementRegistry) void
-            -_notify_elements_changed() void
         }
-        class PatternRegistry {
-            -_patterns: Dict[str, NamingPattern]
-            +register_pattern(pattern: NamingPattern) void
-            +get_pattern(name: str) Optional[NamingPattern]
+        class PatternFacade {
+            -_pattern_factory: PatternFactory
+            -_pattern_cache: PatternCache
+            -_context: Context
+            +get_active_pattern() Optional[NamingPattern]
+            +synchronize_patterns() void
+            +get_pattern(pattern_id: str) Optional[NamingPattern]
+            +create_pattern(pattern_data: PropertyGroup) NamingPattern
+            +update_pattern(pattern_id: str, pattern_data: PropertyGroup) void
+            +delete_pattern(pattern_id: str) void
             +get_all_patterns() List[NamingPattern]
-            +remove_pattern(name: str) void
+            +clear_cache() void
+            +load_from_file(path: str) void
+            +save_to_file(file_path: str, pattern_id: str) void
+            +save_all_patterns(file_path: str) void
+            -_convert_pattern_to_dict(pattern: NamingPattern) Dict
+        }
+        class PatternCache {
+            -_patterns: Dict[str, NamingPattern]
+            -_instance: PatternCache
+            -_lock: RLock
+            +get_instance() PatternCache
+            +reset_instance() void
+            +__getitem__(pattern_id: str) NamingPattern
+            +__setitem__(pattern_id: str, pattern: NamingPattern) void
+            +__delitem__(pattern_id: str) void
+            +__contains__(pattern_id: str) bool
+            +__iter__() Iterator
+            +__len__() int
+            +values() List[NamingPattern]
             +clear() void
         }
-        class PatternConfigManager {
+        class PatternFactory {
             -_element_registry: ElementRegistry
-            -_pattern_registry: PatternRegistry
-            +create_pattern(name: str, elements_data: List[Dict]) NamingPattern
-            +load_from_file(path: str) void
-            +save_to_file(file_path: str, pattern_name: str) void
-            +save_all_patterns(file_path: str) void
-            -_convert_to_element_config(element_data: Dict) ElementConfig
+            +create_pattern(pattern_data: PropertyGroup) NamingPattern
+            -_convert_to_element_config(element_data: PropertyGroup) ElementConfig
+            -_create_elements_config(pattern_data: PropertyGroup) List[ElementConfig]
+            -_create_elements(pattern_data: PropertyGroup) List[INameElement]
         }
     }
 
@@ -356,10 +376,15 @@ classDiagram
     ElementRegistry --> ElementConfig : uses >
     NamingPattern --> INameElement : contains 1..*
     NamingPattern --> ElementConfig : configures >
-    PatternRegistry --> NamingPattern : manages *
-    PatternConfigManager --> PatternRegistry : uses 1
-    PatternConfigManager --> ElementRegistry : uses 1
-    PatternConfigManager --> ElementConfig : creates >
+    
+    PatternFacade --> PatternFactory : uses 1
+    PatternFacade --> PatternCache : uses 1
+    PatternFacade --> NamingPattern : manages *
+    
+    PatternCache --> NamingPattern : stores *
+    PatternFactory --> ElementRegistry : uses 1
+    PatternFactory --> NamingPattern : creates *
+    PatternFactory --> ElementConfig : creates >
     
     NamespaceCache --> INamespace : manages *
     NamespaceCache --> IRenameTarget : uses create_namespace
@@ -374,7 +399,7 @@ classDiagram
     BatchRenameOperation --> RenameResult : produces *
     BatchRenameOperation --> NamingPattern : uses 1
     
-    RenameService --> PatternRegistry : uses 1
+    RenameService --> PatternFacade : uses 1
     RenameService --> ConflictResolver : uses 1
     RenameService --> TargetCollection : uses 1
     RenameService --> BatchRenameOperation : creates >
@@ -382,15 +407,14 @@ classDiagram
     
     RENAME_PT_main_panel --> RenameProperties : uses 1
     RENAME_OT_execute --> RenameService : uses 1
-    RENAME_UL_patterns --> PatternRegistry : displays 1
+    RENAME_UL_patterns --> PatternFacade : displays 1
 
     %% コンポジション関係
     NamingPattern "1" o-- "*" INameElement : contains
-    PatternRegistry "1" o-- "*" NamingPattern : registers
-    NamespaceCache "1" o-- "*" INamespace : caches
-    TargetCollection "1" o-- "*" IRenameTarget : contains
+    PatternCache "1" o-- "*" NamingPattern : stores
+    PatternFactory "1" --> "*" NamingPattern : creates
     
     %% 依存関係（詳細）
-    RenameService "1" --> "1" PatternRegistry : depends on
+    RenameService "1" --> "1" PatternFacade : depends on
     RenameService "1" --> "1" ConflictResolver : depends on
     RenameService "1" --> "1" TargetCollection : depends on
