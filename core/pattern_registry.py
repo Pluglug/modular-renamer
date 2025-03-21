@@ -2,6 +2,7 @@
 パターンの登録・検索・管理
 """
 
+import json
 import threading
 from typing import Dict, List, Optional
 
@@ -16,174 +17,79 @@ from .pattern import NamingPattern
 log = get_logger(__name__)
 
 
-class PatternFacade:
+class PatternFactory:
     """
-    パターンの作成と管理を簡単にするFacade
+    パターンの作成
     """
 
-    def __init__(self, context: Context):
-        self._pattern_factory = PatternFactory(ElementRegistry.get_instance())
-        self._pattern_cache = PatternCache.get_instance()
-        self._context = context
-
-    def get_active_pattern(self) -> Optional[NamingPattern]:
-        """アクティブなパターンを取得"""
-        try:
-            prefs_patterns = prefs(self._context).patterns
-            active_index = prefs(self._context).active_pattern_index
-
-            if not prefs_patterns or active_index >= len(prefs_patterns):
-                return None
-
-            active_pattern = prefs_patterns[active_index]
-            return self._pattern_cache[active_pattern.id]
-        except Exception as e:
-            log.error(f"アクティブパターンの取得中にエラーが発生しました: {e}")
-            return None
-
-    def synchronize_patterns(self) -> None:
-        """
-        キャッシュとパターンの同期処理
-
-        変更されたパターンと新規パターンをキャッシュに反映します。
-        エディットモードの終了時などに呼び出されることを想定しています。
-        """
-        patterns = prefs(self._context).patterns
-        cached_pattern_ids = set(self._pattern_cache.keys())
-
-        for pattern in patterns:
-            # 新規または変更されたパターンを処理
-            is_new = pattern.id not in cached_pattern_ids
-            if is_new or pattern.modified:
-                try:
-                    # 古いパターンを削除（存在する場合）
-                    if not is_new:
-                        del self._pattern_cache[pattern.id]
-
-                    # 新しいパターンを作成して登録
-                    new_pattern = self._pattern_factory.create_pattern(pattern)
-                    self._pattern_cache[pattern.id] = new_pattern
-
-                    # 変更フラグをリセット
-                    pattern.modified = False
-
-                    if is_new:
-                        log.info(f"新規パターン '{pattern.id}' が登録されました")
-                    else:
-                        log.info(f"パターン '{pattern.id}' が更新されました")
-                except Exception as e:
-                    log.error(
-                        f"パターン '{pattern.id}' の処理中にエラーが発生しました: {e}"
-                    )
-
-        # キャッシュから削除されたパターンを検出して削除
-        prefs_pattern_ids = set(p.id for p in patterns)
-        for pattern_id in cached_pattern_ids - prefs_pattern_ids:
-            del self._pattern_cache[pattern_id]
-            log.info(f"パターン '{pattern_id}' がキャッシュから削除されました")
-
-    def get_pattern(self, pattern_id: str) -> Optional[NamingPattern]:
-        """パターンを取得"""
-        try:
-            return self._pattern_cache[pattern_id]
-        except KeyError:
-            return None
+    def __init__(self, element_registry: ElementRegistry):
+        self._element_registry = element_registry
 
     def create_pattern(self, pattern_data: PropertyGroup) -> NamingPattern:
-        """パターンを作成"""
-        new_pattern = self._pattern_factory.create_pattern(pattern_data)
-        self._pattern_cache[pattern_data.id] = new_pattern
-        return new_pattern
-
-    def update_pattern(self, pattern_id: str, pattern_data: PropertyGroup) -> None:
         """
-        パターンを更新
+        パターンを生成して返す
 
         Args:
-            pattern_id: 更新するパターンのID
-            pattern_data: 新しいパターンデータ
+            pattern_data: パターンデータ
+
+        Returns:
+            NamingPattern: 生成されたパターン
         """
-        try:
-            if pattern_id not in self._pattern_cache:
-                log.warning(f"パターンID {pattern_id} が存在しません")
-                return
+        elements = self._create_elements(pattern_data)
+        pattern = NamingPattern(id=pattern_data.id, elements=elements)
+        return pattern
 
-            # 古いパターンを削除
-            del self._pattern_cache[pattern_id]
+    def _create_elements(self, pattern_data: PropertyGroup) -> List[INameElement]:
+        """要素を作成"""
+        elements_config = self._create_elements_config(pattern_data)
+        elements = []
 
-            # 新しいパターンを作成して登録
-            new_pattern = self._pattern_factory.create_pattern(pattern_data)
-            self._pattern_cache[pattern_id] = new_pattern
-        except Exception as e:
-            log.error(f"パターンの更新中にエラーが発生しました: {e}")
+        for element_config in elements_config:
+            try:
+                element = self._element_registry.create_element(element_config)
+                elements.append(element)
+            except (KeyError, TypeError) as e:
+                log.error(f"要素の読み込み中にエラーが発生しました: {e}")
 
-    def delete_pattern(self, pattern_id: str) -> None:
-        """パターンを削除"""
-        try:
-            del self._pattern_cache[pattern_id]
-        except KeyError:
-            pass
+        # かならずBlenderCounterを追加
+        if "blender_counter" not in [e.element_type for e in elements]:
+            element = self._element_registry.create_element(
+                ElementConfig(type="blender_counter", id="blender_counter")
+            )
+            elements.append(element)
 
-    def get_all_patterns(self) -> List[NamingPattern]:
-        """全パターンを取得"""
-        return self._pattern_cache.values()
+        # 要素を順序でソート
+        elements.sort(key=lambda e: e.order)
 
-    def clear_cache(self) -> None:
-        """キャッシュをクリア"""
-        self._pattern_cache.clear()
+        return elements
 
-    def load_from_file(self, path: str) -> None:
-        """JSONファイルからパターン設定を読み込む"""
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                data = json.load(f)
+    def _create_elements_config(
+        self, pattern_data: PropertyGroup
+    ) -> List[ElementConfig]:
+        """要素の設定を作成"""
+        pattern_elements = pattern_data.elements
 
-            for pattern_data in data:
-                self.create_pattern(pattern_data)
+        elements_config = []
+        for element_data in pattern_elements:
+            element_config = self._convert_to_element_config(element_data)
+            elements_config.append(element_config)
 
-        except Exception as e:
-            log.error(f"パターン設定の読み込みに失敗: {e}")
-            raise
+        return elements_config
 
-    def save_to_file(self, file_path: str, pattern_id: str) -> None:
-        """パターンをJSONファイルに保存"""
-        try:
-            pattern = self._pattern_cache[pattern_id]
-            pattern_data = self._convert_pattern_to_dict(pattern)
+    def _convert_to_element_config(self, element_data: PropertyGroup) -> ElementConfig:
+        """BlenderPropertyをElementConfigに変換"""
+        element_type = element_data.element_type
+        element_class = self._element_registry.get_element_type(element_type)
 
-            with open(file_path, "w", encoding="utf-8") as f:
-                json.dump(pattern_data, f, indent=4)
-        except KeyError:
-            raise ValueError(f"パターンが見つかりません: {pattern_id}")
+        config_fields = element_class.get_config_fields()
 
-    def save_all_patterns(self, file_path: str) -> None:
-        """すべてのパターンをJSONファイルに保存"""
-        patterns_data = [
-            self._convert_pattern_to_dict(pattern)
-            for pattern in self._pattern_cache.values()
-        ]
-
-        with open(file_path, "w", encoding="utf-8") as f:
-            json.dump(patterns_data, f, indent=4)
-
-    def _convert_pattern_to_dict(self, pattern: NamingPattern) -> Dict:
-        """パターンを辞書形式に変換"""
-        return {
-            "id": pattern.id,
-            "elements": [
-                {
-                    "type": element.element_type,
-                    **{
-                        field: getattr(element, field)
-                        for field in type(element).get_config_names()
-                    }
-                }
-                for element in pattern.elements
-            ]
+        config_data = {
+            field_name: getattr(element_data, field_name)
+            for field_name in config_fields
+            if hasattr(element_data, field_name)
         }
 
-
-
+        return ElementConfig(**config_data)
 
 
 class PatternCache:
@@ -206,6 +112,7 @@ class PatternCache:
             if not hasattr(self, "_initialized"):
                 self._patterns = {}
                 self._initialized = True
+                log.info("PatternCacheが初期化されました")
 
     @classmethod
     def get_instance(cls) -> "PatternCache":
@@ -247,8 +154,9 @@ class PatternCache:
         """
         with self.__class__._lock:
             if pattern.id != pattern_id:
-                log.warning(f"パターンIDが一致しません: {pattern_id} != {pattern.id}")
-                pattern.id = pattern_id
+                raise ValueError(
+                    f"パターンIDが一致しません: {pattern_id} != {pattern.id}"
+                )
             self._patterns[pattern_id] = pattern
 
     def __delitem__(self, pattern_id: str) -> None:
@@ -311,76 +219,177 @@ class PatternCache:
             self._patterns.clear()
 
 
-class PatternFactory:
+class PatternFacade:
     """
-    パターンの作成
+    パターンの作成と管理
+    Blenderのプリファレンスとの同期を管理
     """
 
-    def __init__(self, element_registry: ElementRegistry):
-        self._element_registry = element_registry
+    def __init__(
+        self,
+        context: Context,
+        element_registry: ElementRegistry,
+        pattern_cache: PatternCache,
+    ):
+        self._context = context
+        self._pattern_factory = PatternFactory(element_registry)
+        self._pattern_cache = pattern_cache
+        log.info("PatternFacadeが初期化されました")
 
-    def _convert_to_element_config(self, element_data: PropertyGroup) -> ElementConfig:
-        """BlenderPropertyをElementConfigに変換"""
-        element_type = element_data.element_type
-        element_class = self._element_registry.get_element_type(element_type)
+    # パターン管理
+    def get_active_pattern(self) -> Optional[NamingPattern]:
+        """アクティブなパターンを取得"""
+        try:
+            prefs_patterns = prefs(self._context).patterns
+            active_index = prefs(self._context).active_pattern_index
 
-        config_fields = element_class.get_config_fields()
+            if not prefs_patterns or active_index >= len(prefs_patterns):
+                return None
 
-        config_data = {
-            field_name: getattr(element_data, field_name)
-            for field_name in config_fields
-            if hasattr(element_data, field_name)
-        }
+            active_pattern = prefs_patterns[active_index]
+            return self._pattern_cache[active_pattern.id]
+        except Exception as e:
+            log.error(f"アクティブパターンの取得中にエラーが発生しました: {e}")
+            return None
 
-        return ElementConfig(**config_data)
-
-    def _create_elements_config(
-        self, pattern_data: PropertyGroup
-    ) -> List[ElementConfig]:
-        """要素の設定を作成"""
-        pattern_elements = pattern_data.elements
-
-        elements_config = []
-        for element_data in pattern_elements:
-            element_config = self._convert_to_element_config(element_data)
-            elements_config.append(element_config)
-
-        return elements_config
-
-    def _create_elements(self, pattern_data: PropertyGroup) -> List[INameElement]:
-        """要素を作成"""
-        elements_config = self._create_elements_config(pattern_data)
-        elements = []
-
-        for element_config in elements_config:
-            try:
-                element = self._element_registry.create_element(element_config)
-                elements.append(element)
-            except (KeyError, TypeError) as e:
-                log.error(f"要素の読み込み中にエラーが発生しました: {e}")
-
-        # かならずBlenderCounterを追加
-        if "blender_counter" not in [e.element_type for e in elements]:
-            element = self._element_registry.create_element(
-                ElementConfig(type="blender_counter", id="blender_counter")
-            )
-            elements.append(element)
-
-        # 要素を順序でソート
-        elements.sort(key=lambda e: e.order)
-
-        return elements
+    def get_pattern(self, pattern_id: str) -> Optional[NamingPattern]:
+        """パターンを取得"""
+        try:
+            return self._pattern_cache[pattern_id]
+        except KeyError:
+            return None
 
     def create_pattern(self, pattern_data: PropertyGroup) -> NamingPattern:
+        """パターンを作成"""
+        new_pattern = self._pattern_factory.create_pattern(pattern_data)
+        self._pattern_cache[pattern_data.id] = new_pattern
+        return new_pattern
+
+    def update_pattern(self, pattern_data: PropertyGroup) -> None:
         """
-        パターンを生成して返す
+        パターンを更新
 
         Args:
-            pattern_data: パターンデータ
-
-        Returns:
-            NamingPattern: 生成されたパターン
+            pattern_data: 新しいパターンデータ
         """
-        elements = self._create_elements(pattern_data)
-        pattern = NamingPattern(id=pattern_data.id, elements=elements)
-        return pattern
+        # 既存のパターンを削除（存在する場合）
+        if pattern_data.id in self._pattern_cache:
+            del self._pattern_cache[pattern_data.id]
+
+        # 新しいパターンを作成して登録
+        self.create_pattern(pattern_data)
+
+        # 変更フラグをリセット
+        pattern_data.modified = False
+
+        log_message = (
+            "新規パターン" if pattern_data.id not in self._pattern_cache else "更新"
+        )
+        log.info(f"{log_message} '{pattern_data.id}' が登録されました")
+
+    def delete_pattern(self, pattern_id: str) -> None:
+        """パターンを削除"""
+        try:
+            del self._pattern_cache[pattern_id]
+        except KeyError:
+            pass
+
+    def get_all_patterns(self) -> List[NamingPattern]:
+        """全パターンを取得"""
+        return self._pattern_cache.values()
+
+    # 同期処理
+    def synchronize_patterns(self) -> None:
+        """
+        キャッシュとパターンの同期処理
+
+        1. 新規・変更パターンの作成と登録
+        2. 削除されたパターンの除去
+        """
+        self._synchronize_modified_patterns()
+        self._remove_deleted_patterns()
+
+    def _synchronize_modified_patterns(self) -> None:
+        """新規または変更されたパターンを同期"""
+        patterns = prefs(self._context).patterns
+        cached_pattern_ids = set(self._pattern_cache.keys())
+
+        for pattern in patterns:
+            if self._should_update_pattern(pattern, cached_pattern_ids):
+                try:
+                    self.update_pattern(pattern)
+                except Exception as e:
+                    log.error(
+                        f"パターン '{pattern.id}' の同期中にエラーが発生しました: {e}"
+                    )
+
+    def _should_update_pattern(self, pattern: PropertyGroup, cached_ids: set) -> bool:
+        """パターンの更新が必要かどうかを判定"""
+        is_new = pattern.id not in cached_ids
+        return is_new or pattern.modified
+
+    def _remove_deleted_patterns(self) -> None:
+        """削除されたパターンをキャッシュから除去"""
+        patterns = prefs(self._context).patterns
+        prefs_pattern_ids = set(p.id for p in patterns)
+        cached_pattern_ids = set(self._pattern_cache.keys())
+
+        for pattern_id in cached_pattern_ids - prefs_pattern_ids:
+            del self._pattern_cache[pattern_id]
+            log.info(f"パターン '{pattern_id}' がキャッシュから削除されました")
+
+    # キャッシュ管理
+    def clear_cache(self) -> None:
+        """キャッシュをクリア"""
+        self._pattern_cache.clear()
+
+    # TODO: SRPの違反 PatternSerializerに分離
+    def load_from_file(self, path: str) -> None:
+        """JSONファイルからパターン設定を読み込む"""
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+
+            for pattern_data in data:
+                self.create_pattern(pattern_data)
+
+        except Exception as e:
+            log.error(f"パターン設定の読み込みに失敗: {e}")
+            raise
+
+    def save_to_file(self, file_path: str, pattern_id: str) -> None:
+        """パターンをJSONファイルに保存"""
+        try:
+            pattern = self._pattern_cache[pattern_id]
+            pattern_data = self._convert_pattern_to_dict(pattern)
+
+            with open(file_path, "w", encoding="utf-8") as f:
+                json.dump(pattern_data, f, indent=4)
+        except KeyError:
+            raise ValueError(f"パターンが見つかりません: {pattern_id}")
+
+    def save_all_patterns(self, file_path: str) -> None:
+        """すべてのパターンをJSONファイルに保存"""
+        patterns_data = [
+            self._convert_pattern_to_dict(pattern)
+            for pattern in self._pattern_cache.values()
+        ]
+
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(patterns_data, f, indent=4)
+
+    def _convert_pattern_to_dict(self, pattern: NamingPattern) -> Dict:
+        """パターンを辞書形式に変換"""
+        return {
+            "id": pattern.id,
+            "elements": [
+                {
+                    "type": element.element_type,
+                    **{
+                        field: getattr(element, field)
+                        for field in type(element).get_config_names()
+                    },
+                }
+                for element in pattern.elements
+            ],
+        }

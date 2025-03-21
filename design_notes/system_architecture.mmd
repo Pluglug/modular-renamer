@@ -6,7 +6,7 @@ config:
 ---
 
 classDiagram
-    direction TD
+    direction LR
     %% 要素関連のコンポーネント
     namespace core_elements {
         class ElementConfig {
@@ -193,22 +193,12 @@ classDiagram
             +get_element_by_id(element_id: str) INameElement
             +gen_test_names(random: bool, num_cases: int) List[str]
         }
-        class PatternFacade {
-            -_pattern_factory: PatternFactory
-            -_pattern_cache: PatternCache
-            -_context: Context
-            +get_active_pattern() Optional[NamingPattern]
-            +synchronize_patterns() void
-            +get_pattern(pattern_id: str) Optional[NamingPattern]
+        class PatternFactory {
+            -_element_registry: ElementRegistry
             +create_pattern(pattern_data: PropertyGroup) NamingPattern
-            +update_pattern(pattern_id: str, pattern_data: PropertyGroup) void
-            +delete_pattern(pattern_id: str) void
-            +get_all_patterns() List[NamingPattern]
-            +clear_cache() void
-            +load_from_file(path: str) void
-            +save_to_file(file_path: str, pattern_id: str) void
-            +save_all_patterns(file_path: str) void
-            -_convert_pattern_to_dict(pattern: NamingPattern) Dict
+            -_create_elements(pattern_data: PropertyGroup) List[INameElement]
+            -_create_elements_config(pattern_data: PropertyGroup) List[ElementConfig]
+            -_convert_to_element_config(element_data: PropertyGroup) ElementConfig
         }
         class PatternCache {
             -_patterns: Dict[str, NamingPattern]
@@ -225,12 +215,22 @@ classDiagram
             +values() List[NamingPattern]
             +clear() void
         }
-        class PatternFactory {
-            -_element_registry: ElementRegistry
+        class PatternFacade {
+            -_context: Context
+            -_pattern_factory: PatternFactory
+            -_pattern_cache: PatternCache
+            +get_active_pattern() Optional[NamingPattern]
+            +get_pattern(pattern_id: str) Optional[NamingPattern]
             +create_pattern(pattern_data: PropertyGroup) NamingPattern
-            -_convert_to_element_config(element_data: PropertyGroup) ElementConfig
-            -_create_elements_config(pattern_data: PropertyGroup) List[ElementConfig]
-            -_create_elements(pattern_data: PropertyGroup) List[INameElement]
+            +update_pattern(pattern_data: PropertyGroup) void
+            +delete_pattern(pattern_id: str) void
+            +get_all_patterns() List[NamingPattern]
+            +synchronize_patterns() void
+            +clear_cache() void
+            +load_from_file(path: str) void
+            +save_to_file(file_path: str, pattern_id: str) void
+            +save_all_patterns(file_path: str) void
+            -_convert_pattern_to_dict(pattern: NamingPattern) Dict
         }
     }
 
@@ -379,12 +379,12 @@ classDiagram
     
     PatternFacade --> PatternFactory : uses 1
     PatternFacade --> PatternCache : uses 1
-    PatternFacade --> NamingPattern : manages *
     
     PatternCache --> NamingPattern : stores *
     PatternFactory --> ElementRegistry : uses 1
     PatternFactory --> NamingPattern : creates *
     PatternFactory --> ElementConfig : creates >
+    PatternCache --> NamingPattern : stores
     
     NamespaceCache --> INamespace : manages *
     NamespaceCache --> IRenameTarget : uses create_namespace
