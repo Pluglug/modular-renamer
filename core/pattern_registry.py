@@ -132,6 +132,59 @@ class PatternFacade:
         """キャッシュをクリア"""
         self._pattern_cache.clear()
 
+    def load_from_file(self, path: str) -> None:
+        """JSONファイルからパターン設定を読み込む"""
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+
+            for pattern_data in data:
+                self.create_pattern(pattern_data)
+
+        except Exception as e:
+            log.error(f"パターン設定の読み込みに失敗: {e}")
+            raise
+
+    def save_to_file(self, file_path: str, pattern_id: str) -> None:
+        """パターンをJSONファイルに保存"""
+        try:
+            pattern = self._pattern_cache[pattern_id]
+            pattern_data = self._convert_pattern_to_dict(pattern)
+
+            with open(file_path, "w", encoding="utf-8") as f:
+                json.dump(pattern_data, f, indent=4)
+        except KeyError:
+            raise ValueError(f"パターンが見つかりません: {pattern_id}")
+
+    def save_all_patterns(self, file_path: str) -> None:
+        """すべてのパターンをJSONファイルに保存"""
+        patterns_data = [
+            self._convert_pattern_to_dict(pattern)
+            for pattern in self._pattern_cache.values()
+        ]
+
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(patterns_data, f, indent=4)
+
+    def _convert_pattern_to_dict(self, pattern: NamingPattern) -> Dict:
+        """パターンを辞書形式に変換"""
+        return {
+            "id": pattern.id,
+            "elements": [
+                {
+                    "type": element.element_type,
+                    **{
+                        field: getattr(element, field)
+                        for field in type(element).get_config_names()
+                    }
+                }
+                for element in pattern.elements
+            ]
+        }
+
+
+
+
 
 class PatternCache:
     """
