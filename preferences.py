@@ -147,6 +147,12 @@ class NamingPattern(bpy.types.PropertyGroup):
         description="Elements that make up this naming pattern",
     )
 
+    modified: BoolProperty(
+        name="Modified",
+        description="Whether the pattern has been modified",
+        default=True,
+    )
+
     active_element_index: IntProperty(name="Active Element Index", default=0)
 
     edit_mode: BoolProperty(

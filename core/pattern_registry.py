@@ -2,123 +2,260 @@
 パターンの登録・検索・管理
 """
 
+import threading
 from typing import Dict, List, Optional
-
 
 from bpy.types import Context, PropertyGroup
 
 from ..addon import prefs
-from .pattern import NamingPattern
-from .element_registry import ElementRegistry
-from .element import INameElement, ElementConfig
-
 from ..utils.logging import get_logger
+from .element import ElementConfig, INameElement
+from .element_registry import ElementRegistry
+from .pattern import NamingPattern
 
 log = get_logger(__name__)
 
 
-# class PatternFacade:  # TODO: 作成管理のすみわけ
-#     """
-#     パターンの作成と管理を簡単にするFacade
-#     """
-
-#     _instance = None
-
-#     def __new__(cls, *args, **kwargs):
-#         if cls._instance is None:
-#             cls._instance = super().__new__(cls)
-#             cls._instance._pattern_factory = PatternFactory(ElementRegistry())
-#             cls._instance._pattern_cache = PatternCache()
-#             log.info("PatternFacadeが初期化されました")
-#         return cls._instance
-
-#     @classmethod
-#     def get_instance(cls) -> "PatternFacade":
-#         """インスタンスを取得"""
-#         if cls._instance is None:
-#             cls._instance = cls()
-#         return cls._instance
-
-#     def get_active_pattern(self, context: Context) -> Optional[NamingPattern]:
-#         """アクティブなパターンを取得"""
-#         return prefs(context).patterns[prefs(context).active_pattern_index]
-
-#     def get_pattern(self, pattern_id: str) -> Optional[NamingPattern]:
-#         """パターンを取得"""
-#         return self._pattern_cache.get_pattern(pattern_id)
-
-#     def create_pattern(self, pattern_data: PropertyGroup) -> NamingPattern:
-#         """パターンを作成"""
-#         return self._pattern_factory.create_pattern(pattern_data)
-
-#     def update_pattern(self, pattern_id: str, pattern_data: PropertyGroup) -> None:
-#         """パターンを更新"""
-#         self._pattern_cache.update_pattern(pattern_id, pattern_data)
-
-#     def delete_pattern(self, pattern_id: str) -> None:
-#         """パターンを削除"""
-#         self._pattern_cache.delete_pattern(pattern_id)
-
-#     def get_all_patterns(self) -> List[NamingPattern]:
-#         """全パターンを取得"""
-#         return self._pattern_cache.get_all_patterns()
-
-#     def clear_cache(self) -> None:
-#         """キャッシュをクリア"""
-#         self._pattern_cache.clear()
-
-
-class PatternRegistry:  # TODO: PatternCacheに移行
+class PatternFacade:
     """
-    パターンの登録と取得を管理する純粋なレジストリ
-    設定の読み込みや永続化の詳細は上位レイヤーに委ねる
+    パターンの作成と管理を簡単にするFacade
     """
 
-    def __init__(self):
-        self._patterns: Dict[str, NamingPattern] = {}
-    
-    def add_pattern(self, pattern: NamingPattern) -> None:
-        """パターンをキャッシュに追加"""
-        self._patterns[pattern.id] = pattern
+    def __init__(self, context: Context):
+        self._pattern_factory = PatternFactory(ElementRegistry.get_instance())
+        self._pattern_cache = PatternCache.get_instance()
+        self._context = context
+
+    def get_active_pattern(self) -> Optional[NamingPattern]:
+        """アクティブなパターンを取得"""
+        try:
+            prefs_patterns = prefs(self._context).patterns
+            active_index = prefs(self._context).active_pattern_index
+
+            if not prefs_patterns or active_index >= len(prefs_patterns):
+                return None
+
+            active_pattern = prefs_patterns[active_index]
+            return self._pattern_cache[active_pattern.id]
+        except Exception as e:
+            log.error(f"アクティブパターンの取得中にエラーが発生しました: {e}")
+            return None
+
+    def synchronize_patterns(self) -> None:
+        """
+        キャッシュとパターンの同期処理
+
+        変更されたパターンと新規パターンをキャッシュに反映します。
+        エディットモードの終了時などに呼び出されることを想定しています。
+        """
+        patterns = prefs(self._context).patterns
+        cached_pattern_ids = set(self._pattern_cache.keys())
+
+        for pattern in patterns:
+            # 新規または変更されたパターンを処理
+            is_new = pattern.id not in cached_pattern_ids
+            if is_new or pattern.modified:
+                try:
+                    # 古いパターンを削除（存在する場合）
+                    if not is_new:
+                        del self._pattern_cache[pattern.id]
+
+                    # 新しいパターンを作成して登録
+                    new_pattern = self._pattern_factory.create_pattern(pattern)
+                    self._pattern_cache[pattern.id] = new_pattern
+
+                    # 変更フラグをリセット
+                    pattern.modified = False
+
+                    if is_new:
+                        log.info(f"新規パターン '{pattern.id}' が登録されました")
+                    else:
+                        log.info(f"パターン '{pattern.id}' が更新されました")
+                except Exception as e:
+                    log.error(
+                        f"パターン '{pattern.id}' の処理中にエラーが発生しました: {e}"
+                    )
+
+        # キャッシュから削除されたパターンを検出して削除
+        prefs_pattern_ids = set(p.id for p in patterns)
+        for pattern_id in cached_pattern_ids - prefs_pattern_ids:
+            del self._pattern_cache[pattern_id]
+            log.info(f"パターン '{pattern_id}' がキャッシュから削除されました")
 
     def get_pattern(self, pattern_id: str) -> Optional[NamingPattern]:
+        """パターンを取得"""
+        try:
+            return self._pattern_cache[pattern_id]
+        except KeyError:
+            return None
+
+    def create_pattern(self, pattern_data: PropertyGroup) -> NamingPattern:
+        """パターンを作成"""
+        new_pattern = self._pattern_factory.create_pattern(pattern_data)
+        self._pattern_cache[pattern_data.id] = new_pattern
+        return new_pattern
+
+    def update_pattern(self, pattern_id: str, pattern_data: PropertyGroup) -> None:
         """
-        パターン名からパターンを取得
+        パターンを更新
+
+        Args:
+            pattern_id: 更新するパターンのID
+            pattern_data: 新しいパターンデータ
+        """
+        try:
+            if pattern_id not in self._pattern_cache:
+                log.warning(f"パターンID {pattern_id} が存在しません")
+                return
+
+            # 古いパターンを削除
+            del self._pattern_cache[pattern_id]
+
+            # 新しいパターンを作成して登録
+            new_pattern = self._pattern_factory.create_pattern(pattern_data)
+            self._pattern_cache[pattern_id] = new_pattern
+        except Exception as e:
+            log.error(f"パターンの更新中にエラーが発生しました: {e}")
+
+    def delete_pattern(self, pattern_id: str) -> None:
+        """パターンを削除"""
+        try:
+            del self._pattern_cache[pattern_id]
+        except KeyError:
+            pass
+
+    def get_all_patterns(self) -> List[NamingPattern]:
+        """全パターンを取得"""
+        return self._pattern_cache.values()
+
+    def clear_cache(self) -> None:
+        """キャッシュをクリア"""
+        self._pattern_cache.clear()
+
+
+class PatternCache:
+    """
+    パターンのキャッシュを保持する。
+    辞書のように扱うことも可能。
+    """
+
+    _instance = None
+    _lock = threading.RLock()
+
+    def __new__(cls, *args, **kwargs):
+        with cls._lock:
+            if cls._instance is None:
+                cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __init__(self):
+        with self.__class__._lock:
+            if not hasattr(self, "_initialized"):
+                self._patterns = {}
+                self._initialized = True
+
+    @classmethod
+    def get_instance(cls) -> "PatternCache":
+        with cls._lock:
+            if cls._instance is None:
+                cls._instance = cls()
+            return cls._instance
+
+    @classmethod
+    def reset_instance(cls):
+        with cls._lock:
+            cls._instance = None
+
+    def __getitem__(self, pattern_id: str) -> NamingPattern:
+        """
+        パターンを辞書形式で取得 (cache[pattern_id])
 
         Args:
             pattern_id: パターンID
 
         Returns:
-            Optional[NamingPattern]: 見つかったパターン、存在しない場合はNone
+            NamingPattern: 見つかったパターン
+
+        Raises:
+            KeyError: パターンが存在しない場合
         """
-        return self._patterns.get(pattern_id)
+        pattern = self._patterns.get(pattern_id)
+        if pattern is None:
+            raise KeyError(f"パターン '{pattern_id}' は存在しません")
+        return pattern
 
-    def update_pattern(self, pattern_id: str, pattern_data: PropertyGroup) -> None:
-        """パターンを更新"""
-        self._patterns[pattern_id] = pattern_data
-
-
-    def get_all_patterns(self) -> List[NamingPattern]:
+    def __setitem__(self, pattern_id: str, pattern: NamingPattern) -> None:
         """
-        登録されている全パターンを取得
+        パターンを辞書形式で設定 (cache[pattern_id] = pattern)
+
+        Args:
+            pattern_id: パターンID
+            pattern: 登録するパターン
+        """
+        with self.__class__._lock:
+            if pattern.id != pattern_id:
+                log.warning(f"パターンIDが一致しません: {pattern_id} != {pattern.id}")
+                pattern.id = pattern_id
+            self._patterns[pattern_id] = pattern
+
+    def __delitem__(self, pattern_id: str) -> None:
+        """
+        パターンを辞書形式で削除 (del cache[pattern_id])
+
+        Args:
+            pattern_id: 削除するパターンID
+
+        Raises:
+            KeyError: パターンが存在しない場合
+        """
+        with self.__class__._lock:
+            if pattern_id not in self._patterns:
+                raise KeyError(f"パターン '{pattern_id}' は存在しません")
+            del self._patterns[pattern_id]
+
+    def __contains__(self, pattern_id: str) -> bool:
+        """
+        パターンの存在確認 (pattern_id in cache)
+
+        Args:
+            pattern_id: 確認するパターンID
+
+        Returns:
+            bool: パターンが存在するかどうか
+        """
+        return pattern_id in self._patterns
+
+    def __iter__(self):
+        """
+        イテレータとして使用 (for pattern_id in cache)
+
+        Returns:
+            Iterator: パターンIDのイテレータ
+        """
+        return iter(self._patterns)
+
+    def __len__(self) -> int:
+        """
+        パターン数を取得 (len(cache))
+
+        Returns:
+            int: パターン数
+        """
+        return len(self._patterns)
+
+    def values(self) -> List[NamingPattern]:
+        """
+        全パターンを取得
 
         Returns:
             List[NamingPattern]: 登録されているパターンのリスト
         """
         return list(self._patterns.values())
 
-    def remove_pattern(self, pattern_id: str) -> None:
-        """
-        パターンを削除
-
-        Args:
-            pattern_id: 削除するパターンのID
-        """
-        self._patterns.pop(pattern_id, None)
-
     def clear(self) -> None:
         """全パターンの削除"""
-        self._patterns.clear()
+        with self.__class__._lock:
+            self._patterns.clear()
 
 
 class PatternFactory:
@@ -144,9 +281,10 @@ class PatternFactory:
 
         return ElementConfig(**config_data)
 
-    def _create_elements_config(self, pattern_data: PropertyGroup) -> List[ElementConfig]:
+    def _create_elements_config(
+        self, pattern_data: PropertyGroup
+    ) -> List[ElementConfig]:
         """要素の設定を作成"""
-
         pattern_elements = pattern_data.elements
 
         elements_config = []
@@ -183,6 +321,9 @@ class PatternFactory:
     def create_pattern(self, pattern_data: PropertyGroup) -> NamingPattern:
         """
         パターンを生成して返す
+
+        Args:
+            pattern_data: パターンデータ
 
         Returns:
             NamingPattern: 生成されたパターン
