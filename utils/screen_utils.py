@@ -1,6 +1,11 @@
 from contextlib import contextmanager
 from typing import Any, Dict, Union, Self, Optional, Tuple, TypeVar, cast
 
+__all__ = [
+    'BlenderContextManager',
+    'get_context_override',
+]
+
 import bpy
 from bpy.types import Area, Context, Region, Screen, Window
 
@@ -178,16 +183,20 @@ class BlenderContextManager:
     Window -> Screen -> Area -> Region
     
     使用例:
-        # 直接指定での使用（シンプル）
-        with BlenderContextManager().temp_override(area="VIEW_3D", mode='EDIT'):
-            bpy.ops.mesh.select_all()
-            
-        # メソッドチェーン - find_* メソッド
-        with BlenderContextManager().find_area("VIEW_3D").temp_override():
+        # 基本的な使用方法
+        with BlenderContextManager(context).find_area("VIEW_3D").temp_override():
             bpy.ops.view3d.some_operator()
             
-        # メソッドチェーン - add_kwargsの使用
-        with BlenderContextManager().find_area("VIEW_3D").add_kwargs(mode='EDIT').temp_override():
+        # 追加の引数が必要な場合
+        with BlenderContextManager(context).find_area("VIEW_3D").add_kwargs(mode='EDIT').temp_override():
+            bpy.ops.mesh.select_all()
+            
+        # 複数のエリアを指定する場合
+        with BlenderContextManager(context).find_screen("Animation").find_area("GRAPH_EDITOR").temp_override():
+            bpy.ops.graph.some_operator()
+            
+        # 直接指定での使用（シンプルな場合のみ）
+        with BlenderContextManager(context).temp_override(area="VIEW_3D", mode='EDIT'):
             bpy.ops.mesh.select_all()
     """
     
