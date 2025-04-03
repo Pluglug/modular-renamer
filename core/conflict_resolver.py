@@ -1,8 +1,11 @@
 from typing import Any, Dict, List, Optional, Set
 
+from ..elements.counter_element import NumericCounter
 from .namespace import NamespaceCache, INamespace
 from .pattern import NamingPattern
 from .rename_target import IRenameTarget
+
+
 
 
 class ConflictResolver:
@@ -14,14 +17,11 @@ class ConflictResolver:
     STRATEGY_COUNTER = "counter"  # カウンターを用いて解決
     STRATEGY_FORCE = "force"  # 強制上書き
 
-    def __init__(self, namespace_cache: NamespaceCache):
+    def __init__(self):
         """
         コンフリクトリゾルバーを初期化する
-
-        Args:
-            namespace_cache: NamespaceCacheインスタンス
         """
-        self.namespace_cache = namespace_cache
+        self._namespace_cache = NamespaceCache()
         self.resolved_conflicts: List[Dict] = []
 
     def resolve_name_conflict(
@@ -65,10 +65,10 @@ class ConflictResolver:
         final_name = ""
         if strategy == self.STRATEGY_COUNTER:
             final_name = self._resolve_with_counter(pattern, proposed_name, namespace)
-        elif strategy == self.STRATEGY_FORCE:
-            final_name = self._resolve_with_force(proposed_name)
+        # elif strategy == self.STRATEGY_FORCE:
+        #     final_name = self._resolve_with_force(proposed_name)
         else:
-            # 不明な戦略の場合は提案名をそのまま返す
+            print(f"Not Supported Strategy: {strategy}")
             final_name = proposed_name
 
         # 解決された名前で名前空間を更新
@@ -89,10 +89,9 @@ class ConflictResolver:
             new_name: 新しい名前
         """
         namespace = self._get_namespace(target)
-        if namespace:
-            namespace.update(old_name, new_name)
+        namespace.update(old_name, new_name)
 
-    def _get_namespace(self, target: IRenameTarget) -> Optional[INamespace]:
+    def _get_namespace(self, target: IRenameTarget) -> INamespace:
         """
         ターゲットの名前空間を取得する
 
@@ -102,10 +101,7 @@ class ConflictResolver:
         Returns:
             名前空間、または取得できない場合はNone
         """
-        try:
-            return self.namespace_cache.get_namespace(target)
-        except Exception:
-            return None
+        return self._namespace_cache.get_namespace(target)
 
     def _is_name_in_conflict(
         self, name: str, namespace: INamespace, target: IRenameTarget
@@ -142,8 +138,9 @@ class ConflictResolver:
         Returns:
             解決された名前
         """
-        # カウンター要素を探す
-        counter_elements = [e for e in pattern.elements if hasattr(e, "increment")]
+        # NumericCounterを探す
+        # TODO: PatternやPatternFacadeを通じてカウンター要素を取得すべき
+        counter_elements = [e for e in pattern.elements if isinstance(e, NumericCounter)]
 
         if not counter_elements:
             # カウンター要素がない場合は単純にサフィックスを追加
@@ -164,46 +161,28 @@ class ConflictResolver:
         counter = counter_elements[-1]  # 最後のカウンター要素を使用
 
         # 競合が解消されるまでカウンターを増分
-        iterations = 0
-        max_iterations = 1000  # 安全のため最大試行回数を制限
+        start_value = counter.value_int
+        max_value = start_value + 1000
 
-        while iterations < max_iterations:
-            counter.increment()
-            new_name = pattern.render_name()
+        for idx in range(start_value, max_value):
+            # TODO: Patternがincrementすべき
+            # counter.increment()
+            # new_name = pattern.render_name()
+            proposed_name = counter.gen_proposed_name(idx)
 
-            if not namespace.contains(new_name):
-                return new_name
-
-            iterations += 1
+            if not namespace.contains(proposed_name):
+                return proposed_name
 
         # 最大試行回数に達した場合
         return f"{name}_unsolved_conflict"
 
     def _resolve_with_force(self, name: str) -> str:
-        """
-        強制上書きで名前競合を解決する（実質的に競合を無視）
-
-        Args:
-            name: 提案された名前
-
-        Returns:
-            同じ名前（変更なし）
-        """
+        """強制上書きで名前競合を解決する"""
         return name
 
     def _find_conflicting_targets(
         self, target: IRenameTarget, name: str
     ) -> List[IRenameTarget]:
-        """
-        指定された名前と競合するターゲットを見つける
-
-        Args:
-            target: 現在のリネーム対象
-            name: チェックする名前
-
-        Returns:
-            競合するターゲットのリスト
-        """
-        # 実際の実装では、BlenderのAPIを使用する必要がある
-        # 現時点では空のリストを返す
-        return []
+        """指定された名前と競合するターゲットを見つける"""
+        # Contextが必要
+        pass
