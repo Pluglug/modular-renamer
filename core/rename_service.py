@@ -4,11 +4,52 @@ from typing import Any, Dict, List, Optional
 from bpy.types import Context
 
 from .conflict_resolver import ConflictResolver
+from .element_registry import ElementRegistry
 from .namespace import NamespaceCache
 from .pattern import NamingPattern
-from .pattern_registry import PatternRegistry
+from .pattern_system import PatternFacade, PatternCache, PatternFactory
 from .rename_target import IRenameTarget
 from .target_collector import TargetCollector
+
+
+class CollectionSource(Enum):
+    """データ収集元"""
+
+    VIEW3D = auto()
+    OUTLINER = auto()
+    NODE_EDITOR = auto()
+    SEQUENCE_EDITOR = auto()
+    FILE_BROWSER = auto()
+
+
+
+@dataclass
+class OperationScope:
+    mode: CollectionSource = CollectionSource.VIEW3D
+    # include_hidden: bool = False  # オプションアイディア
+    # restrict_types: Optional[Set[Type]] = None  # 処理対象を限定するアイディア "OBJECT" など
+
+    @classmethod
+    def from_context(cls, context: Context) -> "OperationScope":
+        # context.scene から文字列としてモードを取得
+        mode_str = context.scene.rename_targets_mode
+
+        # 文字列を CollectionSource Enum に変換
+        try:
+            collection_source_mode = CollectionSource[mode_str]
+        except KeyError:
+            # EnumProperty の定義と Scene の値が不一致の場合などのフォールバック
+            print(f"警告: 無効なモード文字列 '{mode_str}' が検出されました。デフォルトの VIEW3D を使用します。")
+            collection_source_mode = CollectionSource.VIEW3D
+
+        config = {
+            # "mode": context.scene.rename_targets_mode, # 修正前
+            "mode": collection_source_mode, # 修正後
+            # 将来的な設定の追加
+            # "include_hidden": context.scene.rename_include_hidden,
+            # "restrict_types": get_restricted_types_from_context(context),
+        }
+        return cls(**config)
 
 
 @dataclass
@@ -79,7 +120,11 @@ class RenameService:
         リネームサービスを初期化する
         """
         self._target_collector = TargetCollector(context)
-        self._pattern_registry = PatternRegistry()
+        self._pattern_facade = PatternFacade(
+            context,
+            ElementRegistry.get_instance(),
+            PatternCache.get_instance(),
+        )
         self._conflict_resolver = ConflictResolver()
 
     def prepare_batch(

@@ -28,6 +28,7 @@ import bpy
 # ======================================================
 
 DBG_INIT = True  # 初期化時のデバッグ出力
+CREATE_DEPENDENCY_GRAPH = True  # 依存関係グラフの作成
 BACKGROUND = False  # バックグラウンドモードの有効化
 VERSION = (0, 0, 0)  # アドオンバージョン
 BL_VERSION = (0, 0, 0)  # 対応Blenderバージョン
@@ -442,6 +443,7 @@ def _sort_modules(module_names: List[str]) -> List[str]:
                 dep_str = ", ".join(short_name(d) for d in deps) if deps else "-"
                 print(f"{idx+1:2d}. {short_name(mod)} (依存: {dep_str})")
 
+        if CREATE_DEPENDENCY_GRAPH:
             # Mermaid形式で図を生成 (詳細分析用)
             try:
                 mermaid = _visualize_dependencies(graph)
@@ -920,6 +922,7 @@ def _is_bpy_class(obj) -> bool:
     bpy構造体クラスか判定
 
     Blenderに登録可能なクラスを識別します。
+    アドオン独自のクラスのみを検出します。
 
     Args:
         obj: 判定する対象
@@ -931,6 +934,7 @@ def _is_bpy_class(obj) -> bool:
         inspect.isclass(obj)
         and issubclass(obj, bpy.types.bpy_struct)
         and obj.__base__ is not bpy.types.bpy_struct
+        and obj.__module__.startswith(ADDON_ID)
     )
 
 
@@ -958,7 +962,7 @@ def _validate_class(cls: bpy.types.bpy_struct) -> None:
 # ======================================================
 
 
-class Timeout(bpy.types.Operator):
+class Timeout:
     """
     遅延実行用オペレータ
 
@@ -1003,6 +1007,11 @@ class Timeout(bpy.types.Operator):
             self.delay, window=context.window
         )
         return {"RUNNING_MODAL"}
+
+
+TimeoutOperator = type(
+    "%s_OT_timeout" % ADDON_PREFIX, (Timeout, bpy.types.Operator), {}
+)
 
 
 def timeout(func: callable, *args) -> None:
