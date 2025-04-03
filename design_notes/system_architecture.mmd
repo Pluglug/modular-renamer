@@ -1,7 +1,6 @@
 ---
 config:
-  theme: neutral
-  look: classic
+  theme: mc
   layout: elk
 ---
 
@@ -124,12 +123,32 @@ classDiagram
     namespace core {
         class IRenameTarget {
             <<interface>>
+            +bl_type: ClassVar[str]
+            +ol_type: ClassVar[int]
+            +ol_idcode: ClassVar[int]
+            +display_name: ClassVar[str]
+            +icon: ClassVar[str]
+            +namespace_key: ClassVar[str]
+            +collection_type: ClassVar[Type]
             +get_name() str
-            +set_name(name: str) void
+            +set_name(name: str, force_rename: bool) str
             +get_namespace_key() str
-            +target_type: str
-            +get_blender_object() Any
-            +create_namespace(context: Context) INamespace
+            +create_namespace() Set[str]
+            +get_collection_type() Type
+            +can_create_from_scope(source_item: Any, scope: OperationScope) bool
+            +create_from_scope(context: Context, source_item: Any, scope: OperationScope, pointer_cache: PointerCache) Optional[IRenameTarget]
+        }
+        class OperationScope {
+             +mode: CollectionSource
+             +from_context(context: Context) OperationScope
+        }
+        class CollectionSource {
+            <<enum>>
+            VIEW3D
+            OUTLINER
+            NODE_EDITOR
+            SEQUENCE_EDITOR
+            FILE_BROWSER
         }
         class INamespace {
             <<interface>>
@@ -158,14 +177,33 @@ classDiagram
             +clear() void
             +get_all_namespaces() List[INamespace]
         }
-        class TargetCollection {
-            -_context: Context
-            -_targets: List[IRenameTarget]
-            +__init__(context: Context)
-            +collect_by_type(target_type: str) List[IRenameTarget]
-            +collect_selected() List[IRenameTarget]
-            +collect_all() List[IRenameTarget]
-            +update_context(context: Context) void
+        class TargetCollector {
+            +context: Context
+            +scope: OperationScope
+            +registry: RenameTargetRegistry
+            -_pointer_cache: PointerCache
+            +__init__(context: Context, scope: OperationScope, pointer_cache: PointerCache)
+            +get_selected_items() List[Any]
+            +collect_targets() List[IRenameTarget]
+            -_get_override_dict_for_area_type(area_type: str) dict
+            -_get_selected_from_view3d() List[Any]
+            -_get_selected_from_outliner() List[OutlinerElementInfo]
+            -_get_selected_from_node_editor() List[Node]
+            -_get_selected_from_sequence_editor() List[Any]
+            -_get_selected_from_file_browser() List[Any]
+        }
+        class RenameTargetRegistry {
+             -_instance: RenameTargetRegistry
+             -_target_classes_by_bl_type: Dict[str, Type[IRenameTarget]]
+             -_target_classes_by_ol_type: Dict[int, List[Type[IRenameTarget]]]
+             -_target_classes_by_ol_idcode: Dict[int, Type[IRenameTarget]]
+             +get_instance() RenameTargetRegistry
+             +reset_instance() void
+             +initialize() void
+             +register_target_class(target_class: Type[IRenameTarget]) void
+             +find_target_class_for_item(item: Any, scope: OperationScope) Optional[Type[IRenameTarget]]
+             +create_target_from_source(context: Context, source_item: Any, scope: OperationScope) Optional[IRenameTarget]
+             -_initialize_defaults() void
         }
     }
 
@@ -192,6 +230,7 @@ classDiagram
             +validate() List[str]
             +get_element_by_id(element_id: str) INameElement
             +gen_test_names(random: bool, num_cases: int) List[str]
+            +clone() NamingPattern
         }
         class PatternFactory {
             -_element_registry: ElementRegistry
@@ -267,14 +306,16 @@ classDiagram
             +get_result_summary() str
         }
         class RenameService {
-            -_pattern_registry: PatternRegistry
-            -_target_collection: TargetCollection
-            -_namespace_cache: NamespaceCache
+            -_target_collector: TargetCollector
+            -_pattern_facade: PatternFacade
             -_conflict_resolver: ConflictResolver
             +__init__(context: Context)
-            +update_context(context: Context) void
-            +prepare_batch(target_type: str, pattern_name: str) BatchRenameOperation
+            +prepare_batch(target_type: str, pattern_name: str, context: Context) BatchRenameOperation
+            +apply_element_updates(batch_op: BatchRenameOperation, updates: Dict) void
+            +preview_batch(batch_op: BatchRenameOperation) List[RenameResult]
             +execute_batch(batch_op: BatchRenameOperation) List[RenameResult]
+            -_process_target(target: IRenameTarget, pattern: NamingPattern, strategy: str, simulate: bool) RenameResult
+            -_apply_results(batch_op: BatchRenameOperation) void
         }
     }
 
@@ -282,26 +323,70 @@ classDiagram
     namespace targets {
         class BaseRenameTarget {
             <<abstract>>
-            #_blender_obj: Any
+            #_data: Any
+            #_context: Context
+            +bl_type: str
+            +ol_type: int
+            +ol_idcode: int
+            +display_name: str
+            +icon: str
+            +namespace_key: str
+            +collection_type: Type
             +get_name() str
-            +set_name(name: str) void
-            +get_blender_object() Any
-            +create_namespace(context: Context) INamespace
+            +set_name(name: str, force_rename: bool) str
+            +get_namespace_key() str
+            +create_namespace() Set[str]
+            +get_collection_type() Type
+            +can_create_from_scope(source_item: Any, scope: OperationScope) bool
+            +create_from_scope(context: Context, source_item: Any, scope: OperationScope, pointer_cache: PointerCache) Optional[IRenameTarget]
+            +get_data() Any
+        }
+        class BoneTargetMixin {
+             +ol_idcode: None
+             +get_namespace_key() str
+             +create_namespace() Set[str]
         }
         class ObjectRenameTarget {
-            +target_type: str = "OBJECT"
-            +get_namespace_key() str
-            +create_namespace(context: Context) INamespace
+            +bl_type: str = "OBJECT"
+            +ol_type: int = TSE_SOME_ID
+            +ol_idcode: int = ID_OB
+            +namespace_key: str = "objects"
+            +collection_type: Type = bpy.types.Object
+            +display_name: str = "Object"
+            +icon: str = "OBJECT_DATA"
+            +create_namespace() Set[str]
+            +can_create_from_scope(source_item: Any, scope: OperationScope) bool
+            +create_from_scope(context: Context, source_item: Any, scope: OperationScope, pointer_cache: PointerCache) Optional[IRenameTarget]
+        }
+        class BoneRenameTarget {
+            +bl_type: str = "BONE"
+            +ol_type: int = TSE_BONE
+            +display_name: str = "Bone"
+            +icon: str = "BONE_DATA"
+            +namespace_key: str = "bones_"
+            +get_collection_type() Type
+            +can_create_from_scope(source_item: Any, scope: OperationScope) bool
+            +create_from_scope(context: Context, source_item: Any, scope: OperationScope, pointer_cache: PointerCache) Optional[IRenameTarget]
         }
         class PoseBoneRenameTarget {
-            +target_type: str = "POSE_BONE"
-            +get_namespace_key() str
-            +create_namespace(context: Context) INamespace
+            +bl_type: str = "POSE_BONE"
+            +ol_type: int = TSE_POSE_CHANNEL
+            +display_name: str = "Pose Bone"
+            +icon: str = "BONE_DATA"
+            +namespace_key: str = "pose_bones_"
+            +get_collection_type() Type
+            +can_create_from_scope(source_item: Any, scope: OperationScope) bool
+            +create_from_scope(context: Context, source_item: Any, scope: OperationScope, pointer_cache: PointerCache) Optional[IRenameTarget]
         }
-        class MaterialRenameTarget {
-            +target_type: str = "MATERIAL"
-            +get_namespace_key() str
-            +create_namespace(context: Context) INamespace
+        class EditBoneRenameTarget {
+            +bl_type: str = "EDIT_BONE"
+            +ol_type: int = TSE_EBONE
+            +display_name: str = "Edit Bone"
+            +icon: str = "BONE_DATA"
+            +namespace_key: str = "edit_bones_"
+            +get_collection_type() Type
+            +can_create_from_scope(source_item: Any, scope: OperationScope) bool
+            +create_from_scope(context: Context, source_item: Any, scope: OperationScope, pointer_cache: PointerCache) Optional[IRenameTarget]
         }
     }
 
@@ -356,6 +441,42 @@ classDiagram
         }
     }
 
+    %% Blender連携
+    namespace blender {
+         class PointerCache {
+             -_context: Context
+             -_pointer_cache: Dict[int, Any]
+             -_scanned_collections: Set[Type]
+             +__init__(context: Context)
+             +ensure_pointer_cache_for_types(types_to_cache: Set[Type]) void
+             +get_object_by_pointer(pointer_value: Optional[int], expected_type: Optional[Type]) Optional[Any]
+             +clear_cache() void
+             -_scan_and_cache_pointers(collection_type: Type, collection_key: str) void
+             -_get_collection_key_for_type(type_to_find: Type) Optional[str]
+         }
+         class OutlinerElementInfo { %% Simplified View
+            +name: str
+            +type: int
+            +id: Optional[int]
+            +idcode: int
+            %% ... other relevant info (omitted for clarity)
+         }
+         class RNAElementDetails { %% Simplified View
+             +blender_data: Optional[Any]
+             %% ... other details (omitted)
+         }
+         class ShapeKeyDetails {
+             %% ... specific details (omitted)
+         }
+         class CustomPropertyDetails {
+             %% ... specific details (omitted)
+         }
+         class get_selected_outliner_elements {
+             <<function>>
+             +get_selected_outliner_elements(context: Context) List[OutlinerElementInfo]
+         }
+    }
+
     %% 継承関係
     INameElement <|.. BaseElement : implements
     BaseElement <|-- TextElement
@@ -365,46 +486,67 @@ classDiagram
     BaseCounter <|-- NumericCounter
     BaseCounter <|-- BlenderCounter
     BaseCounter <|-- AlphabeticCounter
+
     IRenameTarget <|.. BaseRenameTarget
     BaseRenameTarget <|-- ObjectRenameTarget
+    BaseRenameTarget <|-- BoneRenameTarget
     BaseRenameTarget <|-- PoseBoneRenameTarget
-    BaseRenameTarget <|-- MaterialRenameTarget
+    BaseRenameTarget <|-- EditBoneRenameTarget
+
+    BoneRenameTarget --|> BoneTargetMixin : uses
+    PoseBoneRenameTarget --|> BoneTargetMixin : uses
+    EditBoneRenameTarget --|> BoneTargetMixin : uses
+
     INamespace <|.. Namespace
+
+    RNAElementDetails <|-- ShapeKeyDetails
+    RNAElementDetails <|-- CustomPropertyDetails
 
     %% 依存関係と関連
     ElementRegistry --> INameElement : creates >
     ElementRegistry --> ElementConfig : uses >
     NamingPattern --> INameElement : contains 1..*
     NamingPattern --> ElementConfig : configures >
-    
+
     PatternFacade --> PatternFactory : uses 1
     PatternFacade --> PatternCache : uses 1
-    
+
     PatternCache --> NamingPattern : stores *
     PatternFactory --> ElementRegistry : uses 1
     PatternFactory --> NamingPattern : creates *
     PatternFactory --> ElementConfig : creates >
-    PatternCache --> NamingPattern : stores
-    
+
     NamespaceCache --> INamespace : manages *
     NamespaceCache --> IRenameTarget : uses create_namespace
-    TargetCollection o-- IRenameTarget : contains
-    
+
     ConflictResolver --> NamespaceCache : uses 1
-    ConflictResolver --> IRenameTarget : resolves for * 
+    ConflictResolver --> IRenameTarget : resolves for *
     ConflictResolver --> NamingPattern : uses for conflict resolution
-    
+
     RenameResult --> IRenameTarget : references 1
     BatchRenameOperation --> IRenameTarget : contains *
     BatchRenameOperation --> RenameResult : produces *
     BatchRenameOperation --> NamingPattern : uses 1
-    
+
     RenameService --> PatternFacade : uses 1
     RenameService --> ConflictResolver : uses 1
-    RenameService --> TargetCollection : uses 1
+    RenameService --> TargetCollector : uses 1
     RenameService --> BatchRenameOperation : creates >
     RenameService --> RenameResult : creates *
-    
+
+    RenameTargetRegistry --> IRenameTarget : manages >
+    RenameTargetRegistry ..> BaseRenameTarget : registers >
+
+    TargetCollector --> RenameTargetRegistry : uses 1
+    TargetCollector --> OperationScope : uses 1
+    TargetCollector --> PointerCache : uses 1
+    TargetCollector ..> get_selected_outliner_elements : uses >
+
+    get_selected_outliner_elements ..> OutlinerElementInfo : creates >
+
+    BaseRenameTarget ..> PointerCache : uses >
+    BaseRenameTarget ..> OutlinerElementInfo : uses >
+
     RENAME_PT_main_panel --> RenameProperties : uses 1
     RENAME_OT_execute --> RenameService : uses 1
     RENAME_UL_patterns --> PatternFacade : displays 1
@@ -413,8 +555,8 @@ classDiagram
     NamingPattern "1" o-- "*" INameElement : contains
     PatternCache "1" o-- "*" NamingPattern : stores
     PatternFactory "1" --> "*" NamingPattern : creates
-    
+
     %% 依存関係（詳細）
     RenameService "1" --> "1" PatternFacade : depends on
     RenameService "1" --> "1" ConflictResolver : depends on
-    RenameService "1" --> "1" TargetCollection : depends on
+    RenameService "1" --> "1" TargetCollector : depends on
