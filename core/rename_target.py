@@ -172,50 +172,66 @@ class RenameTargetRegistry:
         """デフォルトのターゲットクラスを登録する (遅延初期化)"""
         if not self._target_classes_by_bl_type and not self._target_classes_by_ol_type:
             self._initialize_defaults()
-            print(f"RenameTargetRegistry: Lazy Initialized with {len(self._target_classes_by_bl_type)} bl_type classes, {len(self._target_classes_by_ol_type)} ol_type classes, {len(self._target_classes_by_ol_idcode)} ol_idcode classes") # TEMPLOG
+            print(
+                f"RenameTargetRegistry: Lazy Initialized with {len(self._target_classes_by_bl_type)} bl_type classes, {len(self._target_classes_by_ol_type)} ol_type classes, {len(self._target_classes_by_ol_idcode)} ol_idcode classes"
+            )  # TEMPLOG
         else:
-             print("RenameTargetRegistry: Already initialized.") # TEMPLOG
+            print("RenameTargetRegistry: Already initialized.")  # TEMPLOG
 
     def _initialize_defaults(self):
         """デフォルトのターゲットクラスを登録"""
-        print("RenameTargetRegistry: Initializing defaults...") # TEMPLOG
-        
+        print("RenameTargetRegistry: Initializing defaults...")  # TEMPLOG
+
         try:
             from . import targets
             import inspect
         except ImportError as e:
-             print(f"RenameTargetRegistry: Error importing targets module: {e}")
-             return
+            print(f"RenameTargetRegistry: Error importing targets module: {e}")
+            return
 
         registered_count = 0
-        print("RenameTargetRegistry: --- Checking members in targets module ---") # TEMPLOG
+        print(
+            "RenameTargetRegistry: --- Checking members in targets module ---"
+        )  # TEMPLOG
         for name, obj in inspect.getmembers(targets):
-            print(f"RenameTargetRegistry: Checking member: {name}") # TEMPLOG
+            print(f"RenameTargetRegistry: Checking member: {name}")  # TEMPLOG
             is_cls = inspect.isclass(obj)
-            print(f"RenameTargetRegistry:   - Is Class: {is_cls}") # TEMPLOG
+            print(f"RenameTargetRegistry:   - Is Class: {is_cls}")  # TEMPLOG
             if not is_cls:
-                 print(f"RenameTargetRegistry:   - Skipping (not a class).") # TEMPLOG
-                 continue
+                print(f"RenameTargetRegistry:   - Skipping (not a class).")  # TEMPLOG
+                continue
 
             is_subclass_of_base = issubclass(obj, BaseRenameTarget)
-            print(f"RenameTargetRegistry:   - Is Subclass of BaseRenameTarget: {is_subclass_of_base}") # TEMPLOG
+            print(
+                f"RenameTargetRegistry:   - Is Subclass of BaseRenameTarget: {is_subclass_of_base}"
+            )  # TEMPLOG
             is_not_base = obj is not BaseRenameTarget
-            print(f"RenameTargetRegistry:   - Is Not BaseRenameTarget itself: {is_not_base}") # TEMPLOG
+            print(
+                f"RenameTargetRegistry:   - Is Not BaseRenameTarget itself: {is_not_base}"
+            )  # TEMPLOG
             is_concrete = not inspect.isabstract(obj)
-            print(f"RenameTargetRegistry:   - Is Concrete (not abstract): {is_concrete}") # TEMPLOG
+            print(
+                f"RenameTargetRegistry:   - Is Concrete (not abstract): {is_concrete}"
+            )  # TEMPLOG
 
             # 登録条件の判定
             # if inspect.isclass(obj) and issubclass(obj, BaseRenameTarget) and obj is not BaseRenameTarget and not inspect.isabstract(obj):
             if is_cls and is_subclass_of_base and is_not_base and is_concrete:
                 subclass = obj
-                print(f"RenameTargetRegistry:   -> Registering {subclass.__name__}...") # TEMPLOG
+                print(
+                    f"RenameTargetRegistry:   -> Registering {subclass.__name__}..."
+                )  # TEMPLOG
                 self.register_target_class(subclass)
                 registered_count += 1
             else:
-                print(f"RenameTargetRegistry:   -> Skipping {name} (doesn't meet all criteria).") # TEMPLOG
-        print("RenameTargetRegistry: --- Finished checking members ---") # TEMPLOG
+                print(
+                    f"RenameTargetRegistry:   -> Skipping {name} (doesn't meet all criteria)."
+                )  # TEMPLOG
+        print("RenameTargetRegistry: --- Finished checking members ---")  # TEMPLOG
 
-        print(f"RenameTargetRegistry: Default initialization complete. Registered {registered_count} classes from targets module.") # TEMPLOG
+        print(
+            f"RenameTargetRegistry: Default initialization complete. Registered {registered_count} classes from targets module."
+        )  # TEMPLOG
 
     def register_target_class(self, target_class: Type[IRenameTarget]):
         """ターゲットクラスを bl_type と ol_type に基づいて登録"""
@@ -292,7 +308,9 @@ class RenameTargetRegistry:
                         if ol_idcode == item.idcode:
                             return cls
 
-                print(f"未対応のアイテムです。\nname: {item.name}\ntype: {item.type}\nidcode: {item.idcode}")
+                print(
+                    f"未対応のアイテムです。\nname: {item.name}\ntype: {item.type}\nidcode: {item.idcode}"
+                )
 
         elif scope.mode == CollectionSource.NODE_EDITOR:
             if isinstance(item, bpy.types.Node):
@@ -325,11 +343,11 @@ class RenameTargetRegistry:
 class TargetCollector:
     """リネーム対象収集クラス"""
 
-    def __init__(self, context: bpy.types.Context, scope: OperationScope, pointer_cache: PointerCache):
+    def __init__(self, context: bpy.types.Context, scope: OperationScope):
         self.context = context
         self.scope = scope
         self.registry = RenameTargetRegistry.get_instance()
-        self._pointer_cache = pointer_cache
+        self.pointer_cache = PointerCache(context)
 
     def _get_override_dict_for_area_type(
         self, area_type: str
@@ -429,7 +447,9 @@ class TargetCollector:
 
         # --- 2. 必要なキャッシュタイプの特定 (1回目のループ) ---
         required_types: Set[Type] = set()
-        target_class_map: Dict[int, Optional[Type[IRenameTarget]]] = {} # item とクラスのマッピングを一時保存
+        target_class_map: Dict[int, Optional[Type[IRenameTarget]]] = (
+            {}
+        )  # item とクラスのマッピングを一時保存
 
         for idx, item in enumerate(primary_items):
             target_cls = self.registry.find_target_class_for_item(item, self.scope)
@@ -443,11 +463,10 @@ class TargetCollector:
 
         # --- 3. CacheManagerにキャッシュ構築を指示 ---
         if required_types:
-            print(f"Collector: Requesting cache for types: {required_types}") # Debug
-            self._pointer_cache.ensure_pointer_cache_for_types(required_types)
+            print(f"Collector: Requesting cache for types: {required_types}")  # Debug
+            self.pointer_cache.ensure_pointer_cache_for_types(required_types)
         else:
-            print("Collector: No required types identified for caching.") # Debug
-            # キャッシュ不要でもターゲット生成は試みるべきか？状況による
+            print("Collector: No required types identified for caching.")  # Debug
 
         # --- 4. IRenameTargetインスタンスの生成 (2回目のループ) ---
         for idx, item in enumerate(primary_items):
@@ -456,13 +475,16 @@ class TargetCollector:
             if target_cls:
                 try:
                     target_instance = target_cls.create_from_scope(
-                        self.context, item, self.scope, self._pointer_cache
+                        self.context, item, self.scope, self.pointer_cache
                     )
                     if target_instance:
                         targets.append(target_instance)
                 except Exception as e:
-                    print(f"エラー: ターゲット '{target_cls.__name__}' の生成に失敗しました ({item}): {e}")
+                    print(
+                        f"エラー: ターゲット '{target_cls.__name__}' の生成に失敗しました ({item}): {e}"
+                    )
                     import traceback
+
                     traceback.print_exc()
 
         return targets

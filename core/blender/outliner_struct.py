@@ -1,5 +1,17 @@
-from ctypes import (POINTER, Structure, addressof, byref, c_char, c_char_p,
-                    c_float, c_int, c_short, c_void_p, cast, sizeof)
+from ctypes import (
+    POINTER,
+    Structure,
+    addressof,
+    byref,
+    c_char,
+    c_char_p,
+    c_float,
+    c_int,
+    c_short,
+    c_void_p,
+    cast,
+    sizeof,
+)
 from typing import List
 
 
@@ -58,7 +70,7 @@ class BlenderIDTypes:
     def get_name(cls, value):
         """数値から名前を取得する"""
         for name, val in cls.__dict__.items():
-            if not name.startswith('_') and val == value:
+            if not name.startswith("_") and val == value:
                 return name
         return f"Unknown ID ({value})"
 
@@ -72,7 +84,7 @@ class OutlinerFlags:
     def get_name(cls, value):
         """数値から名前を取得する"""
         for name, val in cls.__dict__.items():
-            if not name.startswith('_') and val == value:
+            if not name.startswith("_") and val == value:
                 return name
         return f"Unknown Flag ({value})"
 
@@ -90,7 +102,7 @@ class OutlinerSelectActions:
     def get_name(cls, value):
         """数値から名前を取得する"""
         for name, val in cls.__dict__.items():
-            if not name.startswith('_') and val == value:
+            if not name.startswith("_") and val == value:
                 return name
         return f"Unknown Action ({value})"
 
@@ -152,7 +164,7 @@ class OutlinerTypes:
     def get_name(cls, value):
         """数値から名前を取得する"""
         for name, val in cls.__dict__.items():
-            if not name.startswith('_') and val == value:
+            if not name.startswith("_") and val == value:
                 return name
         return f"Unknown Type ({value})"
 
@@ -265,7 +277,7 @@ class TreeStoreElem(Structure):
         if self.flag & OutlinerFlags.TSE_SELECTED:
             flags.append("SELECTED")
         flags_str = "|".join(flags) if flags else "NONE"
-        
+
         return (
             f"TreeStoreElem("
             f"type={type_name}({self.type}), "
@@ -323,6 +335,7 @@ TreeElement._fields_ = [
     ("directdata", c_void_p),
 ]
 
+
 def get_name(self) -> str:
     """要素の名前を取得する"""
     if not self.name:
@@ -332,15 +345,17 @@ def get_name(self) -> str:
     except UnicodeDecodeError:
         return "Invalid Name"
 
+
 def get_idcode_name(self) -> str:
     """IDコードの名前を取得する"""
     return BlenderIDTypes.get_name(self.idcode)
+
 
 def __str__(self):
     """デバッグ用の文字列表現を返す"""
     store_elem = self.store_elem.contents if self.store_elem else None
     store_type = store_elem.get_type_name() if store_elem else "None"
-    
+
     return (
         f"TreeElement("
         f"name={self.get_name()}, "
@@ -350,6 +365,7 @@ def __str__(self):
         f"index={self.index}, "
         f"xend={self.xend})"
     )
+
 
 TreeElement.get_name = get_name
 TreeElement.get_idcode_name = get_idcode_name
@@ -445,14 +461,14 @@ if __name__ == "__main__":
             """TreeStoreElemのテスト"""
             # 構造体のインスタンス化
             tse = TreeStoreElem()
-            
+
             # 基本的な属性のテスト
             tse.type = OutlinerTypes.TSE_BONE
             tse.flag = 0  # フラグをクリア
-            
+
             # 型名のテスト
             self.assertEqual(tse.get_type_name(), "TSE_BONE")
-            
+
             # 選択状態のテスト（フラグなし）
             self.assertFalse(tse.is_selected())
             details = tse.get_selection_details()
@@ -461,13 +477,13 @@ if __name__ == "__main__":
             self.assertFalse(details["activated"])
             self.assertFalse(details["extended"])
             self.assertFalse(details["recursive"])
-            
+
             # 選択フラグを設定
             tse.flag = OutlinerFlags.TSE_SELECTED
             self.assertTrue(tse.is_selected())
             details = tse.get_selection_details()
             self.assertTrue(details["selected"])
-            
+
             # 文字列表現のテスト
             str_rep = str(tse)
             self.assertIn("TSE_BONE", str_rep)
@@ -477,7 +493,7 @@ if __name__ == "__main__":
             """TreeElementのテスト"""
             # 構造体のインスタンス化
             te = TreeElement()
-            
+
             # 名前のテスト
             te.name = b"Test Object"
             self.assertEqual(te.get_name(), "Test Object")
