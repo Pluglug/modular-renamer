@@ -6,8 +6,6 @@ from .pattern import NamingPattern
 from .rename_target import IRenameTarget
 
 
-
-
 class ConflictResolver:
     """
     名前の衝突を検出し解決するクラス
@@ -140,9 +138,12 @@ class ConflictResolver:
         """
         # NumericCounterを探す
         # TODO: PatternやPatternFacadeを通じてカウンター要素を取得すべき
-        counter_elements = [e for e in pattern.elements if isinstance(e, NumericCounter)]
+        numeric_counter = [e for e in pattern.elements if isinstance(e, NumericCounter)][-1]
+        blender_counter = [e for e in pattern.elements if isinstance(e, BlenderCounter)][-1]
 
-        if not counter_elements:
+        numeric_counter.take_over_counter(blender_counter)
+
+        if not numeric_counter:
             # カウンター要素がない場合は単純にサフィックスを追加
             suffix = 1
             new_name = f"{name}.{suffix:03d}"
@@ -157,24 +158,37 @@ class ConflictResolver:
 
             return new_name
 
-        # カウンター要素を使用
-        counter = counter_elements[-1]  # 最後のカウンター要素を使用
-
         # 競合が解消されるまでカウンターを増分
-        start_value = counter.value_int
+        start_value = numeric_counter.value_int
         max_value = start_value + 1000
 
         for idx in range(start_value, max_value):
             # TODO: Patternがincrementすべき
             # counter.increment()
             # new_name = pattern.render_name()
-            proposed_name = counter.gen_proposed_name(idx)
+            proposed_name = numeric_counter.gen_proposed_name(idx)
 
             if not namespace.contains(proposed_name):
                 return proposed_name
 
         # 最大試行回数に達した場合
         return f"{name}_unsolved_conflict"
+
+    # # デフォルトの挙動としては、現在の「現在値からのインクリメント」方式の方が、パフォーマンスと設計の一貫性の観点からバランスが良い
+    # def _find_unused_min_counter_value(
+    #     self, pattern: NamingPattern, namespace: INamespace, name: str, start_value: int = 1
+    # ) -> int:
+    #     """
+    #     未使用の最小のカウンター値を見つける
+    #     メリット: 名前の連番にできた欠番（例: .002 がない状態）を自動的に埋めようとするため、結果として番号がきれいに整列しやすい。
+    #     デメリット: 衝突のたびに最小値を 1 から探索し直す可能性があり、要素数が多い場合に計算コストが高くなる可能性がある。また、リネームの順序によって割り当てられる番号が変わる可能性が現在のロジックより高い。ユーザーが意図したカウンター開始値が無視される場合がある。
+    #     """
+    #     numeric_counter = [e for e in pattern.elements if isinstance(e, NumericCounter)][-1]
+    #     for idx in range(start_value, 1000):
+    #         proposed_name = numeric_counter.gen_proposed_name(idx)
+    #         if not namespace.contains(proposed_name):
+    #             return idx
+    #     return None
 
     def _resolve_with_force(self, name: str) -> str:
         """強制上書きで名前競合を解決する"""

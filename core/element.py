@@ -288,6 +288,11 @@ class ICounter(ABC):
         """Generate proposed name with given counter value"""
         pass
 
+    @abstractmethod
+    def take_over_counter(self, other: ICounter, force: bool = False) -> None:
+        """Take over counter from another counter"""
+        pass
+
 
 class BaseCounter(BaseElement, ICounter):
     """Base implementation for all counters"""
@@ -367,3 +372,19 @@ class BaseCounter(BaseElement, ICounter):
     def _parse_value(self, value_str: str) -> int:
         """Parse string value to integer - to be overridden by specific counter types"""
         return int(value_str)
+
+    def take_over_counter(self, other: ICounter, force: bool = False) -> None:
+        """Take over counter from another counter
+        Args:
+            other: カウンターの値を奪う対象のカウンター
+            force: 自分の値が存在する場合でも奪うかどうか
+        """
+        if other.value is None:
+            return
+
+        if not force and self.value is not None:
+            other.set_value(None)
+            return
+
+        self.set_value(other.value)
+        other.set_value(None)
