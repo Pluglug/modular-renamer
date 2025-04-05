@@ -295,7 +295,7 @@ classDiagram
             +success: bool
             +message: str
         }
-        class BatchRenameOperation {
+        class RenameContext {
             +targets: List[IRenameTarget]
             +pattern: NamingPattern
             +element_updates: Dict
@@ -310,12 +310,12 @@ classDiagram
             -_pattern_facade: PatternFacade
             -_conflict_resolver: ConflictResolver
             +__init__(context: Context)
-            +prepare_batch(target_type: str, pattern_name: str, context: Context) BatchRenameOperation
-            +apply_element_updates(batch_op: BatchRenameOperation, updates: Dict) void
-            +preview_batch(batch_op: BatchRenameOperation) List[RenameResult]
-            +execute_batch(batch_op: BatchRenameOperation) List[RenameResult]
+            +prepare_batch(target_type: str, pattern_name: str, context: Context) RenameContext
+            +apply_element_updates(r_ctx: RenameContext, updates: Dict) void
+            +preview_batch(r_ctx: RenameContext) List[RenameResult]
+            +execute_batch(r_ctx: RenameContext) List[RenameResult]
             -_process_target(target: IRenameTarget, pattern: NamingPattern, strategy: str, simulate: bool) RenameResult
-            -_apply_results(batch_op: BatchRenameOperation) void
+            -_apply_results(r_ctx: RenameContext) void
         }
     }
 
@@ -524,14 +524,14 @@ classDiagram
     ConflictResolver --> NamingPattern : uses for conflict resolution
 
     RenameResult --> IRenameTarget : references 1
-    BatchRenameOperation --> IRenameTarget : contains *
-    BatchRenameOperation --> RenameResult : produces *
-    BatchRenameOperation --> NamingPattern : uses 1
+    RenameContext --> IRenameTarget : contains *
+    RenameContext --> RenameResult : produces *
+    RenameContext --> NamingPattern : uses 1
 
     RenameService --> PatternFacade : uses 1
     RenameService --> ConflictResolver : uses 1
     RenameService --> TargetCollector : uses 1
-    RenameService --> BatchRenameOperation : creates >
+    RenameService --> RenameContext : creates >
     RenameService --> RenameResult : creates *
 
     RenameTargetRegistry --> IRenameTarget : manages >

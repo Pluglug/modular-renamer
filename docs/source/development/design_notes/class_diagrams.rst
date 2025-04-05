@@ -11,7 +11,7 @@
         participant RENAME_OT_execute
         participant RenameService
         participant TargetCollector
-        participant BatchRenameOperation
+        participant RenameContext
         participant PatternRegistry
         participant NamingPattern
         participant ConflictResolver
@@ -27,7 +27,7 @@
         TargetCollector->>TargetCollector: コンテキストに基づく収集
         TargetCollector-->>RenameService: ターゲットリスト返却
         
-        RenameService->>BatchRenameOperation: 新しいバッチ操作作成
+        RenameService->>RenameContext: 新しいバッチ操作作成
         RenameService-->>RENAME_OT_execute: バッチ操作返却
         
         RENAME_OT_execute->>RenameService: execute_batch()
@@ -73,7 +73,7 @@
             ConflictResolver-->>RenameService: 更新完了
         end
         
-        RenameService->>BatchRenameOperation: 結果を保存
+        RenameService->>RenameContext: 結果を保存
         RenameService-->>RENAME_OT_execute: 実行結果返却
         RENAME_OT_execute-->>ユーザー: 完了通知
 
@@ -375,7 +375,7 @@
                 +success: bool
                 +message: str
             }
-            class BatchRenameOperation {
+            class RenameContext {
                 +targets: List[IRenameTarget]
                 +pattern: NamingPattern
                 +element_updates: Dict
@@ -392,8 +392,8 @@
                 -_conflict_resolver: ConflictResolver
                 +__init__(context: Context)
                 +update_context(context: Context) void
-                +prepare_batch(target_type: str, pattern_name: str) BatchRenameOperation
-                +execute_batch(batch_op: BatchRenameOperation) List[RenameResult]
+                +prepare_batch(target_type: str, pattern_name: str) RenameContext
+                +execute_batch(r_ctx: RenameContext) List[RenameResult]
             }
         }
 
@@ -509,14 +509,14 @@
         ConflictResolver --> NamingPattern : uses for conflict resolution
         
         RenameResult --> IRenameTarget : references 1
-        BatchRenameOperation --> IRenameTarget : contains *
-        BatchRenameOperation --> RenameResult : produces *
-        BatchRenameOperation --> NamingPattern : uses 1
+        RenameContext --> IRenameTarget : contains *
+        RenameContext --> RenameResult : produces *
+        RenameContext --> NamingPattern : uses 1
         
         RenameService --> PatternRegistry : uses 1
         RenameService --> ConflictResolver : uses 1
         RenameService --> TargetCollection : uses 1
-        RenameService --> BatchRenameOperation : creates >
+        RenameService --> RenameContext : creates >
         RenameService --> RenameResult : creates *
         
         RENAME_PT_main_panel --> RenameProperties : uses 1

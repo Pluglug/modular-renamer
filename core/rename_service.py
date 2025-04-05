@@ -70,7 +70,7 @@ class RenameResult:
         return f"RenameResult(target={self.target.get_name()}, original={self.original_name}, final={self.final_name}, success={self.success})"
 
 
-class BatchRenameOperation:
+class RenameContext:
     """
     一括リネーム操作を管理するクラス
     """
@@ -131,7 +131,7 @@ class RenameService:
 
     def prepare_batch(
         self, target_type: str, pattern_name: str, context: Any
-    ) -> BatchRenameOperation:
+    ) -> RenameContext:
         """
         一括リネーム操作を準備する
 
@@ -160,28 +160,28 @@ class RenameService:
             raise ValueError(f"リネーム対象が見つかりません (タイプ: {target_type})")
 
         # バッチ操作を作成
-        return BatchRenameOperation(targets, pattern)
+        return RenameContext(targets, pattern)
 
     def apply_element_updates(
-        self, batch_op: BatchRenameOperation, updates: Dict
+        self, r_ctx: RenameContext, updates: Dict
     ) -> None:
         """
         バッチ操作の要素を更新する
 
         Args:
-            batch_op: バッチリネーム操作
+            r_ctx: バッチリネーム操作
             updates: 要素更新の辞書
         """
-        batch_op.element_updates.update(updates)
-        batch_op.pattern.update_elements(updates)
+        r_ctx.element_updates.update(updates)
+        r_ctx.pattern.update_elements(updates)
 
-    def preview_batch(self, batch_op: BatchRenameOperation) -> List[RenameResult]:
+    def preview_batch(self, r_ctx: RenameContext) -> List[RenameResult]:
         """
         バッチリネーム操作のプレビューを生成する
         実際にオブジェクトは変更せず、結果のみを返す
 
         Args:
-            batch_op: バッチリネーム操作
+            r_ctx: バッチリネーム操作
 
         Returns:
             リネーム結果のリスト
@@ -189,43 +189,43 @@ class RenameService:
         results = []
 
         # 各ターゲットに対してリネームプレビューを生成
-        for target in batch_op.targets:
+        for target in r_ctx.targets:
             # コピーを作成してパターンの状態を保存
-            pattern_copy = batch_op.pattern.clone()
+            pattern_copy = r_ctx.pattern.clone()
 
             # ターゲットの処理
             result = self._process_target(
-                target, pattern_copy, batch_op.strategy, simulate=True
+                target, pattern_copy, r_ctx.strategy, simulate=True
             )
             results.append(result)
 
         return results
 
-    def execute_batch(self, batch_op: BatchRenameOperation) -> List[RenameResult]:
+    def execute_batch(self, r_ctx: RenameContext) -> List[RenameResult]:
         """
         バッチリネーム操作を実行する
 
         Args:
-            batch_op: バッチリネーム操作
+            r_ctx: バッチリネーム操作
 
         Returns:
             リネーム結果のリスト
         """
-        batch_op.results = []
+        r_ctx.results = []
 
         # フェーズ1: すべてのターゲットに対して名前を解決
-        for target in batch_op.targets:
-            result = self._process_target(target, batch_op.pattern, batch_op.strategy)
-            batch_op.results.append(result)
+        for target in r_ctx.targets:
+            result = self._process_target(target, r_ctx.pattern, r_ctx.strategy)
+            r_ctx.results.append(result)
 
             # IDまたはインデックスをキーとしてリザルトを保存
             target_key = str(target.get_namespace_key())
-            batch_op.pending_results[target_key] = result
+            r_ctx.pending_results[target_key] = result
 
         # フェーズ2: すべての名前解決が終わったら、実際にオブジェクトを更新
-        self._apply_results(batch_op)
+        self._apply_results(r_ctx)
 
-        return batch_op.results
+        return r_ctx.results
 
     def _process_target(
         self,
@@ -291,15 +291,15 @@ class RenameService:
 
         return result
 
-    def _apply_results(self, batch_op: BatchRenameOperation) -> None:
+    def _apply_results(self, r_ctx: RenameContext) -> None:
         """
         リネーム結果を実際のオブジェクトに適用する
 
         Args:
-            batch_op: バッチリネーム操作
+            r_ctx: バッチリネーム操作
         """
         # 名前変更を実行
-        for result in batch_op.results:
+        for result in r_ctx.results:
             if result.success:
                 try:
                     # ターゲットの名前を更新

@@ -14,7 +14,7 @@ sequenceDiagram
     participant RENAME_OT_execute
     participant RenameService
     participant TargetCollector
-    participant BatchRenameOperation
+    participant RenameContext
     participant PatternRegistry
     participant NamingPattern
     participant ConflictResolver
@@ -30,7 +30,7 @@ sequenceDiagram
     TargetCollector->>TargetCollector: コンテキストに基づく収集
     TargetCollector-->>RenameService: ターゲットリスト返却
     
-    RenameService->>BatchRenameOperation: 新しいバッチ操作作成
+    RenameService->>RenameContext: 新しいバッチ操作作成
     RenameService-->>RENAME_OT_execute: バッチ操作返却
     
     RENAME_OT_execute->>RenameService: execute_batch()
@@ -76,6 +76,6 @@ sequenceDiagram
         ConflictResolver-->>RenameService: 更新完了
     end
     
-    RenameService->>BatchRenameOperation: 結果を保存
+    RenameService->>RenameContext: 結果を保存
     RenameService-->>RENAME_OT_execute: 実行結果返却
     RENAME_OT_execute-->>ユーザー: 完了通知

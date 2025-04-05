@@ -112,8 +112,8 @@ classDiagram
             -_conflict_resolver: ConflictResolver
             +__init__(context: Context)
             +update_context(context: Context) void
-            +prepare_batch(target_type: str, pattern_name: str) BatchRenameOperation
-            +execute_batch(batch_op: BatchRenameOperation) List[RenameResult]
+            +prepare_batch(target_type: str, pattern_name: str) RenameContext
+            +execute_batch(r_ctx: RenameContext) List[RenameResult]
         }
 
         class ConflictResolver {
