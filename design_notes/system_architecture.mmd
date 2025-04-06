@@ -310,7 +310,7 @@ classDiagram
             -_pattern_facade: PatternFacade
             -_conflict_resolver: ConflictResolver
             +__init__(context: Context)
-            +prepare_batch(target_type: str, pattern_name: str, context: Context) RenameContext
+            +_prepare_rename_context() RenameContext
             +apply_element_updates(r_ctx: RenameContext, updates: Dict) void
             +preview_batch(r_ctx: RenameContext) List[RenameResult]
             +execute_batch(r_ctx: RenameContext) List[RenameResult]

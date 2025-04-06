@@ -21,7 +21,7 @@ sequenceDiagram
     participant NamespaceCache
     
     ユーザー->>RENAME_OT_execute: リネーム実行操作
-    RENAME_OT_execute->>RenameService: prepare_batch()
+    RENAME_OT_execute->>RenameService: _prepare_rename_context()
     
     RenameService->>PatternRegistry: パターン取得
     PatternRegistry-->>RenameService: NamingPattern返却

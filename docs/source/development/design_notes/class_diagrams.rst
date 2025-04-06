@@ -18,7 +18,7 @@
         participant NamespaceCache
         
         ユーザー->>RENAME_OT_execute: リネーム実行操作
-        RENAME_OT_execute->>RenameService: prepare_batch()
+        RENAME_OT_execute->>RenameService: _prepare_rename_context()
         
         RenameService->>PatternRegistry: パターン取得
         PatternRegistry-->>RenameService: NamingPattern返却
@@ -392,7 +392,7 @@
                 -_conflict_resolver: ConflictResolver
                 +__init__(context: Context)
                 +update_context(context: Context) void
-                +prepare_batch(target_type: str, pattern_name: str) RenameContext
+                +_prepare_rename_context(target_type: str, pattern_name: str) RenameContext
                 +execute_batch(r_ctx: RenameContext) List[RenameResult]
             }
         }

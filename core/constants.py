@@ -17,11 +17,11 @@ ELEMENT_TYPE_ITEMS = [
     # ("free_text", "Free Text", "Any text input"),  # 未実装
     ("position", "Position", "Positional indicators (L/R, Top/Bot, etc)"),
     ("numeric_counter", "Numeric Counter", "Numerical counter with formatting options"),
-    (
-        "alphabetic_counter",
-        "Alphabetic Counter",
-        "Alphabetic counter with formatting options",
-    ),
+    # (
+    #     "alphabetic_counter",
+    #     "Alphabetic Counter",
+    #     "Alphabetic counter with formatting options",
+    # ),
     # ("date", "Date", "Date in various formats"),  # 未実装
     # ("regex", "RegEx", "Custom regular expression pattern"),  # 未実装
 ]

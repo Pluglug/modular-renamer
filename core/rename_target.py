@@ -7,9 +7,9 @@ from typing import Any, ClassVar, Dict, List, Optional, Set, Tuple, Type, Union
 import bpy
 from bpy.types import Context, EditBone, Node, Object, PoseBone
 
-from .rename_service import CollectionSource, OperationScope
 from .blender.outliner_access import OutlinerElementInfo, get_selected_outliner_elements
 from .blender.pointer_cache import PointerCache
+from .scope import CollectionSource, OperationScope
 
 
 class IRenameTarget(ABC):

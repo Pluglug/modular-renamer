@@ -23,7 +23,9 @@ addon.init_addon(
     module_patterns=[
         "core.*",
         "utils.*",
-        "ui.*",
+        "ui",
+        # "targets.*",
+        "elements.*",
         # "operators.*",
         "preferences",
     ],

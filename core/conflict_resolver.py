@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional, Set
 
-from ..elements.counter_element import NumericCounter
+from ..elements.counter_element import NumericCounter, BlenderCounter
 from .namespace import NamespaceCache, INamespace
 from .pattern import NamingPattern
 from .rename_target import IRenameTarget
@@ -138,8 +138,12 @@ class ConflictResolver:
         """
         # NumericCounterを探す
         # TODO: PatternやPatternFacadeを通じてカウンター要素を取得すべき
-        numeric_counter = [e for e in pattern.elements if isinstance(e, NumericCounter)][-1]
-        blender_counter = [e for e in pattern.elements if isinstance(e, BlenderCounter)][-1]
+        numeric_counter = [
+            e for e in pattern.elements if isinstance(e, NumericCounter)
+        ][-1]
+        blender_counter = [
+            e for e in pattern.elements if isinstance(e, BlenderCounter)
+        ][-1]
 
         numeric_counter.take_over_counter(blender_counter)
 

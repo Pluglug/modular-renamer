@@ -64,7 +64,6 @@ class PointerCache:
         self._context = context
         self._pointer_cache: Dict[int, Any] = {}
         self._scanned_collections: Set[Type] = set()
-        print("PointerCache initialized.")  # TEMPLOG
 
     def ensure_pointer_cache_for_types(self, types_to_cache: Set[Type]):
         """

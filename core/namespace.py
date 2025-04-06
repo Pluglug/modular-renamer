@@ -103,14 +103,13 @@ class NamespaceCache:
     名前空間のキャッシュを管理する
     """
 
-    def __init__(self, context: Any):
+    def __init__(self):
         """
         名前空間キャッシュを初期化する
 
         Args:
             context: Blenderコンテキスト
         """
-        self._context = context
         self._namespaces: Dict[Any, INamespace] = {}
 
     def get_namespace(self, target: "IRenameTarget") -> INamespace:
@@ -131,7 +130,7 @@ class NamespaceCache:
             return self._namespaces[key]
 
         # ターゲットに名前空間の作成を依頼
-        namespace = target.create_namespace(self._context)
+        namespace = target.create_namespace()
         if namespace:
             self._namespaces[key] = namespace
             return namespace

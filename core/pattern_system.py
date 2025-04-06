@@ -79,7 +79,12 @@ class PatternFactory:
     def _convert_to_element_config(self, element_data: PropertyGroup) -> ElementConfig:
         """BlenderPropertyをElementConfigに変換"""
         element_type = element_data.element_type
+        log.info(f"element_type: {element_type}")
         element_class = self._element_registry.get_element_type(element_type)
+
+        if element_class is None:
+            log.error(f"要素タイプ '{element_type}' は見つかりません")
+            return None
 
         config_fields = element_class.get_config_fields()
 
@@ -195,6 +200,15 @@ class PatternCache:
         """
         return iter(self._patterns)
 
+    def keys(self) -> List[str]:
+        """
+        パターンIDのリストを取得
+
+        Returns:
+            List[str]: パターンIDのリスト
+        """
+        return list(self._patterns.keys())
+
     def __len__(self) -> int:
         """
         パターン数を取得 (len(cache))
@@ -225,28 +239,77 @@ class PatternFacade:
     Blenderのプリファレンスとの同期を管理
     """
 
-    def __init__(
-        self,
-        context: Context,
-        element_registry: ElementRegistry,
-        pattern_cache: PatternCache,
-    ):
+    def __init__(self, context: Context):
         self._context = context
-        self._pattern_factory = PatternFactory(element_registry)
-        self._pattern_cache = pattern_cache
+        self._pattern_factory = PatternFactory(ElementRegistry.get_instance())
+        self._pattern_cache = PatternCache.get_instance()
+        
+        # ElementRegistryの初期化を確実に行う
+        element_registry = ElementRegistry.get_instance()
+        if not element_registry._is_initialized:
+            element_registry._initialize_default_elements()
+            
+        if not self._pattern_cache:
+            log.info("キャッシュが空のため同期を行います")
+            self.synchronize_patterns()
+
         log.info("PatternFacadeが初期化されました")
+
+    # def _create_default_patterns(self) -> None:
+    #     """デフォルトパターンを作成"""
+    #     try:
+    #         # デフォルトパターンの定義
+    #         default_patterns = [
+    #             {
+    #                 "id": "pose_bone_default",
+    #                 "elements": [
+    #                     {
+    #                         "element_type": "text",
+    #                         "id": "prefix",
+    #                         "order": 0,
+    #                         "enabled": True,
+    #                         "separator": "",
+    #                         "items": ["Bone"]
+    #                     },
+    #                     {
+    #                         "element_type": "position",
+    #                         "id": "position",
+    #                         "order": 1,
+    #                         "enabled": True,
+    #                         "separator": "_"
+    #                     },
+    #                     {
+    #                         "element_type": "blender_counter",
+    #                         "id": "counter",
+    #                         "order": 2,
+    #                         "enabled": True,
+    #                         "separator": "",
+    #                         "digits": 2
+    #                     }
+    #                 ]
+    #             }
+    #         ]
+            
+    #         # デフォルトパターンを作成
+    #         for pattern_data in default_patterns:
+    #             try:
+    #                 pattern = self._pattern_factory.create_pattern(pattern_data)
+    #                 self._pattern_cache[pattern_data["id"]] = pattern
+    #                 log.info(f"デフォルトパターン '{pattern_data['id']}' を作成しました")
+    #             except Exception as e:
+    #                 log.error(f"デフォルトパターン '{pattern_data['id']}' の作成に失敗: {e}")
+                    
+    #     except Exception as e:
+    #         log.error(f"デフォルトパターンの作成に失敗: {e}")
 
     # パターン管理
     def get_active_pattern(self) -> Optional[NamingPattern]:
         """アクティブなパターンを取得"""
         try:
-            prefs_patterns = prefs(self._context).patterns
-            active_index = prefs(self._context).active_pattern_index
-
-            if not prefs_patterns or active_index >= len(prefs_patterns):
+            pr = prefs(self._context)
+            active_pattern = pr.get_active_pattern()
+            if not active_pattern:
                 return None
-
-            active_pattern = prefs_patterns[active_index]
             return self._pattern_cache[active_pattern.id]
         except Exception as e:
             log.error(f"アクティブパターンの取得中にエラーが発生しました: {e}")
@@ -317,11 +380,17 @@ class PatternFacade:
         for pattern in patterns:
             if self._should_update_pattern(pattern, cached_pattern_ids):
                 try:
+                    log.debug(f"Updating pattern: {pattern.id}")
                     self.update_pattern(pattern)
                 except Exception as e:
-                    log.error(
-                        f"パターン '{pattern.id}' の同期中にエラーが発生しました: {e}"
-                    )
+                    log.error(f"パターン '{pattern.id}' の同期中にエラーが発生しました: {e}")
+                    continue
+
+        # キャッシュの整合性を確認
+        for pattern_id in cached_pattern_ids:
+            if pattern_id not in [p.id for p in patterns]:
+                log.debug(f"削除されたパターンをキャッシュから削除: {pattern_id}")
+                del self._pattern_cache[pattern_id]
 
     def _should_update_pattern(self, pattern: PropertyGroup, cached_ids: set) -> bool:
         """パターンの更新が必要かどうかを判定"""

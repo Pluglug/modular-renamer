@@ -5,46 +5,72 @@ config:
     curve: basis
 ---
 flowchart TD
-    core_config_manager(core.config_manager)
     core_conflict_resolver(core.conflict_resolver)
     core_constants(core.constants)
     core_element(core.element)
     core_element_registry(core.element_registry)
     core_namespace(core.namespace)
     core_pattern(core.pattern)
-    core_pattern_registry(core.pattern_registry)
+    core_pattern_system(core.pattern_system)
+    core_property_groups(core.property_groups)
     core_rename_service(core.rename_service)
     core_rename_target(core.rename_target)
-    core_target_collector(core.target_collector)
+    core_scope(core.scope)
+    core_targets(core.targets)
+    elements_counter_element(elements.counter_element)
+    elements_position_element(elements.position_element)
+    elements_text_element(elements.text_element)
     preferences[preferences]
+    ui[ui]
     utils_logging(utils.logging)
     utils_regex_utils(utils.regex_utils)
     utils_strings_utils(utils.strings_utils)
-    core_config_manager --> core_element_registry
-    core_config_manager --> core_element
-    core_config_manager --> utils_logging
-    core_config_manager --> core_pattern_registry
-    core_config_manager --> core_pattern
+    core_conflict_resolver --> elements_counter_element
+    core_conflict_resolver --> core_pattern
     core_conflict_resolver --> core_rename_target
     core_conflict_resolver --> core_namespace
-    core_conflict_resolver --> core_pattern
     core_element --> utils_strings_utils
     core_element --> utils_logging
     core_element_registry --> core_element
     core_element_registry --> utils_logging
+    core_pattern --> elements_counter_element
+    core_pattern --> core_element_registry
     core_pattern --> core_element
     core_pattern --> utils_logging
-    core_pattern --> core_element_registry
-    core_pattern_registry --> core_pattern
-    core_rename_service --> core_rename_target
+    core_pattern_system --> core_pattern
+    core_pattern_system --> core_element_registry
+    core_pattern_system --> core_element
+    core_pattern_system --> utils_logging
+    core_property_groups --> core_constants
+    core_property_groups --> utils_logging
+    core_rename_service --> core_pattern
+    core_rename_service --> core_pattern_system
+    core_rename_service --> core_scope
+    core_rename_service --> core_element_registry
+    core_rename_service --> core_element
     core_rename_service --> core_namespace
     core_rename_service --> core_conflict_resolver
-    core_rename_service --> core_target_collector
-    core_rename_service --> core_pattern_registry
-    core_rename_service --> core_pattern
-    core_rename_target --> utils_strings_utils
-    core_rename_target --> utils_logging
-    core_target_collector --> core_rename_target
-    preferences --> utils_logging
+    core_rename_service --> utils_logging
+    core_rename_service --> core_rename_target
+    core_rename_target --> core_scope
+    core_targets --> core_rename_service
+    core_targets --> core_rename_target
+    elements_counter_element --> utils_regex_utils
+    elements_counter_element --> core_element
+    elements_counter_element --> utils_logging
+    elements_position_element --> core_element
+    elements_position_element --> core_constants
+    elements_position_element --> utils_logging
+    elements_text_element --> utils_regex_utils
+    elements_text_element --> core_element
+    elements_text_element --> utils_logging
+    preferences --> core_pattern_system
+    preferences --> core_property_groups
     preferences --> core_constants
+    preferences --> utils_logging
+    ui --> core_pattern_system
+    ui --> core_rename_target
+    ui --> core_constants
+    ui --> core_rename_service
+    ui --> utils_logging
     utils_regex_utils --> core_constants

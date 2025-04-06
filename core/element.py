@@ -274,6 +274,11 @@ class ICounter(ABC):
         pass
 
     @abstractmethod
+    def add(self, value: int) -> None:
+        """Add a value to the counter"""
+        pass
+
+    @abstractmethod
     def increment(self) -> None:
         """Increment counter value"""
         pass
@@ -289,7 +294,7 @@ class ICounter(ABC):
         pass
 
     @abstractmethod
-    def take_over_counter(self, other: ICounter, force: bool = False) -> None:
+    def take_over_counter(self, other: "ICounter", force: bool = False) -> None:
         """Take over counter from another counter"""
         pass
 
@@ -340,6 +345,13 @@ class BaseCounter(BaseElement, ICounter):
             # 非対応の型の場合
             super().set_value(new_value)  # BaseElementの実装に任せる
             self._value_int = None  # 数値表現はクリア
+
+    def add(self, value: int) -> None:
+        """Add a value to the counter"""
+        if self._value_int is None:
+            self.value_int = value
+        else:
+            self.value_int = self._value_int + value
 
     def increment(self) -> None:
         """Increment counter value by 1"""
