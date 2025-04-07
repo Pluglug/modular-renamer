@@ -15,7 +15,7 @@ class TextElement(BaseElement):
 
     def __init__(self, element_config):
         super().__init__(element_config)
-        self.items = [item.name for item in element_config.items]
+        self.items = getattr(element_config, "items", [])
 
     config_fields = {
         **BaseElement.config_fields,
@@ -28,6 +28,8 @@ class TextElement(BaseElement):
             return error
         if not config.items:
             return "items は空ではないリストである必要があります"
+        if not all(isinstance(item, str) for item in config.items):
+            return "items の要素は全て文字列である必要があります"
         return None
 
     @regex_utils.add_separator_by_order
@@ -39,11 +41,11 @@ class TextElement(BaseElement):
         escaped_items = [re.escape(item) for item in self.items]
         return "|".join(escaped_items)
 
-    def generate_random_value(self) -> Tuple[str, str]:
+    def generate_random_value(self) -> str:
         """Generate a random value from the available items"""
         if self.items:
-            return self.separator, random.choice(self.items)
-        return None, None
+            return random.choice(self.items)
+        return ""
 
 
 # class FreeTextElement(BaseElement):

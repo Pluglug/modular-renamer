@@ -31,6 +31,7 @@ class MODRENAMER_OT_Rename(bpy.types.Operator):
     bl_label = "Rename"
     bl_options = {"REGISTER", "UNDO"}
 
+    # TODO: インデックス指定にしたい
     target_element: bpy.props.StringProperty(
         name="Target Element",
         description="リネーム対象の要素",
@@ -90,6 +91,10 @@ class MODRENAMER_OT_Rename(bpy.types.Operator):
 
         rs.generate_rename_plan(update_dict)
         rs.apply_rename_plan()
+
+        # 全てのエリアを再描画
+        for area in context.screen.areas:
+            area.tag_redraw()
         return {"FINISHED"}
 
 
@@ -317,8 +322,10 @@ class MODRENAMER_PT_MainPanel(bpy.types.Panel):
             self.draw_text_element_properties(layout, element, element_index)
         elif element.element_type == "position":
             self.draw_position_element_properties(layout, element)
-        elif element.element_type == "counter":
+        elif element.element_type == "numeric_counter":
             self.draw_counter_element_properties(layout, element)
+        # elif element.element_type == "blender_counter":
+        #     self.draw_counter_element_properties(layout, element)
         # elif element.element_type == "free_text":
         #     self.draw_free_text_element_properties(layout, element)
         # elif element.element_type == "date":
@@ -423,8 +430,10 @@ class MODRENAMER_PT_MainPanel(bpy.types.Panel):
                 self.draw_text_element(box, element)
             elif element.element_type == "position":
                 self.draw_position_element(box, element)
-            elif element.element_type == "counter":
+            elif element.element_type == "numeric_counter":
                 self.draw_counter_element(box, element)
+            # elif element.element_type == "blender_counter":
+            #     self.draw_counter_element(box, element)
             # elif element.element_type == "free_text":
             #     self.draw_free_text_element(box, element)
             # elif element.element_type == "date":

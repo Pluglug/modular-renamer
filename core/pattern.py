@@ -5,7 +5,7 @@
 
 import itertools
 import random
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Self
 
 from ..elements.counter_element import blender_counter_element_config
 from ..utils.logging import get_logger
@@ -35,25 +35,25 @@ class NamingPattern:
         self.id = id
         self.elements = elements
 
-    # def get_element_by_id(self, element_id: str) -> INameElement:
-    #     """
-    #     指定されたIDの要素を取得する
+    def get_element_by_id(self, element_id: str) -> INameElement:
+        """
+        指定されたIDの要素を取得する
 
-    #     Args:
-    #         element_id: 取得する要素のID
+        Args:
+            element_id: 取得する要素のID
 
-    #     Returns:
-    #         INameElement: 見つかった要素
+        Returns:
+            INameElement: 見つかった要素
 
-    #     Raises:
-    #         ValueError: 要素が見つからない場合
-    #     """
-    #     for element in self.elements:
-    #         if element.id == element_id:
-    #             return element
-    #     raise ValueError(f"要素ID {element_id} が見つかりません")
+        Raises:
+            ValueError: 要素が見つからない場合
+        """
+        for element in self.elements:
+            if element.id == element_id:
+                return element
+        raise ValueError(f"要素ID {element_id} が見つかりません")
 
-    def parse_name(self, name: str) -> None:
+    def parse_name(self, name: str) -> Self:
         """
         名前を解析して要素の値を抽出する
 
@@ -71,12 +71,14 @@ class NamingPattern:
         log.debug(f"NamingPattern.parse_name(name={name})")
         log.debug("\n".join([f"  - {e.id}: {e.value}" for e in self.elements]))
 
-    def update_elements(self, new_elements: Optional[Dict[str, str]] = None) -> None:
+        return self
+
+    def update_elements(self, new_elements: Optional[Dict[str, str]] = None) -> Self:
         """
         複数の要素の値を更新する
 
         Args:
-            new_elements: 要素IDを新しい値にマッピングする辞書
+            new_elements: 要素IDを新しい値にマッピングする辞書 {要素ID: 新しい値}
         """
         if new_elements is None:
             return
@@ -90,6 +92,8 @@ class NamingPattern:
 
         if has_updated:
             self._notify_elements_changed()
+
+        return self
 
     def _notify_elements_changed(self) -> None:
         """
@@ -178,6 +182,17 @@ class NamingPattern:
             return self._gen_sequential_names()
 
     def _gen_random_names(self, num_cases: int) -> List[str]:
+        """ランダムなテスト名を生成する
+
+        各要素をランダムに含めるか除外して名前を生成します。
+        要素の順序は保持されますが、含まれる要素はランダムに決定されます。
+
+        Args:
+            num_cases: 生成するテスト名の数
+
+        Returns:
+            生成されたテスト名のリスト
+        """
         test_names = []
         for _ in range(num_cases):
             elem_parts = [
@@ -194,7 +209,14 @@ class NamingPattern:
         return test_names
 
     def _gen_sequential_names(self) -> List[str]:
-        # Generate combinations where each element is present or absent
+        """すべての組み合わせのテスト名を生成する
+
+        各要素を含めるか除外するかのすべての組み合わせを生成します。
+        n個の要素に対して2^n個の組み合わせが生成されます。
+
+        Returns:
+            生成されたテスト名のリスト
+        """
         element_combinations = itertools.product(
             [True, False], repeat=len(self.elements)
         )

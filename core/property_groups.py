@@ -117,29 +117,29 @@ class NamingElement(bpy.types.PropertyGroup, ModifiedPropMixin):
         update=modified_updater(),
     )
 
-    # For regex elements
-    pattern: StringProperty(
-        name="Pattern",
-        description="Regular expression pattern for matching",
-        default="(.*)",
-        update=modified_updater(),
-    )
+    # # For regex elements
+    # pattern: StringProperty(
+    #     name="Pattern",
+    #     description="Regular expression pattern for matching",
+    #     default="(.*)",
+    #     update=modified_updater(),
+    # )
 
-    # For date elements
-    date_format: StringProperty(
-        name="Format",
-        description="Date format string (strftime)",
-        default="%Y%m%d",
-        update=modified_updater(),
-    )
+    # # For date elements
+    # date_format: StringProperty(
+    #     name="Format",
+    #     description="Date format string (strftime)",
+    #     default="%Y%m%d",
+    #     update=modified_updater(),
+    # )
 
-    # For free text
-    default_text: StringProperty(
-        name="Default Text",
-        description="Default text to use",
-        default="",
-        update=modified_updater(),
-    )
+    # # For free text
+    # default_text: StringProperty(
+    #     name="Default Text",
+    #     description="Default text to use",
+    #     default="",
+    #     update=modified_updater(),
+    # )
 
     # For position elements
     xaxis_type: EnumProperty(

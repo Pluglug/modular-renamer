@@ -60,7 +60,7 @@ class Namespace(INamespace):
     汎用名前空間コンテナ
     """
 
-    def __init__(self, context: Context, initializer=None):
+    def __init__(self, initializer):
         """
         名前空間を初期化する
 
@@ -68,7 +68,6 @@ class Namespace(INamespace):
             context: Blenderコンテキスト
             initializer: 名前集合を初期化する関数(context) -> Set[str]
         """
-        self._context = context
         self._names: Set[str] = set()
         self._initializer = initializer
 
@@ -79,7 +78,7 @@ class Namespace(INamespace):
         """
         名前空間を初期化する
         """
-        names = self._initializer(self._context)
+        names = self._initializer()
         if names:
             self._names = set(names)
 
@@ -130,7 +129,7 @@ class NamespaceCache:
             return self._namespaces[key]
 
         # ターゲットに名前空間の作成を依頼
-        namespace = target.create_namespace()
+        namespace = Namespace(target.create_namespace)
         if namespace:
             self._namespaces[key] = namespace
             return namespace

@@ -46,19 +46,30 @@ class ElementRegistry:
         if self._is_initialized:
             return
 
-        for subclass in INameElement.__subclasses__():
+        # TODO: デフォルトの要素タイプを自動登録する
+        # for subclass in INameElement.__subclasses__():
 
-            # 抽象基底クラスは除外
-            if subclass.__base__ is INameElement or inspect.isabstract(subclass):
-                log.debug(f"除外: {subclass.__name__}")
-                continue
+        #     # 抽象基底クラスは除外
+        #     if subclass.__base__ is INameElement or inspect.isabstract(subclass):
+        #         log.debug(f"除外: {subclass.__name__}")
+        #         continue
 
-            element_type = getattr(subclass, "element_type", None)
-            if element_type:
-                try:
-                    self.register_element_type(element_type, subclass)
-                except TypeError as e:
-                    log.warning(f"要素タイプの登録に失敗: {e}")
+        #     element_type = getattr(subclass, "element_type", None)
+        #     if element_type:
+        #         try:
+        #             self.register_element_type(element_type, subclass)
+        #         except TypeError as e:
+        #             log.warning(f"要素タイプの登録に失敗: {e}")
+
+        from ..elements import (
+            text_element,
+            position_element,
+            counter_element,
+        )
+        self.register_element_type(text_element.TextElement.element_type, text_element.TextElement)
+        self.register_element_type(position_element.PositionElement.element_type, position_element.PositionElement)
+        self.register_element_type(counter_element.NumericCounter.element_type, counter_element.NumericCounter)
+        self.register_element_type(counter_element.BlenderCounter.element_type, counter_element.BlenderCounter)
 
         self._is_initialized = True
 

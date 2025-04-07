@@ -13,6 +13,8 @@ from ..utils.logging import get_logger
 from .element import ElementConfig, INameElement
 from .element_registry import ElementRegistry
 from .pattern import NamingPattern
+from ..elements.counter_element import blender_counter_element_config
+
 
 log = get_logger(__name__)
 
@@ -54,7 +56,7 @@ class PatternFactory:
         # かならずBlenderCounterを追加
         if "blender_counter" not in [e.element_type for e in elements]:
             element = self._element_registry.create_element(
-                ElementConfig(type="blender_counter", id="blender_counter")
+                blender_counter_element_config
             )
             elements.append(element)
 
@@ -85,14 +87,33 @@ class PatternFactory:
         if element_class is None:
             log.error(f"要素タイプ '{element_type}' は見つかりません")
             return None
+        
+        config_fields = element_class.config_fields
 
-        config_fields = element_class.get_config_fields()
+        # これで出来るはずなのだけど
+        # config_data = {
+        #     field_name: getattr(element_data, field_name)
+        #     for field_name in config_fields
+        #     if hasattr(element_data, field_name)
+        # }
 
+        # 必須パラメータを設定
         config_data = {
-            field_name: getattr(element_data, field_name)
-            for field_name in config_fields
-            if hasattr(element_data, field_name)
+            "type": element_type,
+            "id": getattr(element_data, "id", ""),
+            "order": getattr(element_data, "order", 0),
+            "enabled": getattr(element_data, "enabled", True),
+            "separator": getattr(element_data, "separator", "_")
         }
+
+        # 追加の設定フィールドを取得
+        for field_name in config_fields:
+            if hasattr(element_data, field_name):
+                value = getattr(element_data, field_name)
+                # Blenderのプロパティコレクションをリストに変換
+                if hasattr(value, "values"):
+                    value = [item.name for item in value.values()]
+                config_data[field_name] = value
 
         return ElementConfig(**config_data)
 

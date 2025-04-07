@@ -72,10 +72,11 @@ log = logging.get_logger(__name__)
 
 class NumericCounter(BaseCounter):
     """Simple numeric counter with configurable digits"""
+    element_type = "numeric_counter"  # BaseElementを継承していないため
 
     def __init__(self, element_config):
         super().__init__(element_config)
-        self.padding = element_config.get("padding", 2)
+        self.padding = getattr(element_config, "padding", 2)
 
     config_fields = {
         **BaseCounter.config_fields,
@@ -86,7 +87,7 @@ class NumericCounter(BaseCounter):
     def validate_config(cls, config: ElementConfig) -> Optional[str]:
         if error := super().validate_config(config):
             return error
-        if 1 <= config.padding <= 10:
+        if not 1 <= config.padding <= 10:
             return "padding は1から10の整数である必要があります"
         return None
 
@@ -129,7 +130,7 @@ class BlenderCounter(BaseCounter):
     }
 
     @classmethod
-    def validate_config(cls, _config: ElementConfig) -> Optional[str]:
+    def validate_config(cls, config: ElementConfig) -> Optional[str]:
         return None  # BlenderCounterはバリデーションを行わない
 
     @regex_utils.add_named_capture_group

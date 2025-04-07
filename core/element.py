@@ -27,15 +27,23 @@ class ElementConfig:
         separator: str = "_",
         **kwargs,
     ):
-        self.type = type
-        self.id = id
-        self.order = order
-        self.enabled = enabled
-        self.separator = separator
+        self.type: str = type
+        self.id: str = id
+        self.order: int = order
+        self.enabled: bool = enabled
+        self.separator: str = separator
 
         # Store any additional properties
         for key, value in kwargs.items():
             setattr(self, key, value)
+
+    def __getattr__(self, name: str) -> Any:
+        """
+        動的に追加された属性にアクセスするためのフォールバック
+        """
+        if name in self.__dict__:
+            return self.__dict__[name]
+        raise AttributeError(f"'ElementConfig' object has no attribute '{name}'")
 
 
 class INameElement(ABC):
@@ -68,7 +76,7 @@ class INameElement(ABC):
 
     @property
     @abstractmethod
-    def value(self) -> str:
+    def value(self) -> str | None:
         pass
 
     @abstractmethod
@@ -79,14 +87,14 @@ class INameElement(ABC):
         pass
 
     @abstractmethod
-    def render(self) -> Tuple[str, str]:
+    def render(self) -> Tuple[str, str] | None:
         """
         (separator, value) の組として値をレンダリングする
         """
         pass
 
     @abstractmethod
-    def set_value(self, new_value: Any) -> None:
+    def set_value(self, new_value: str | None) -> None:
         """
         要素の値を設定する
         """
@@ -167,13 +175,13 @@ class BaseElement(INameElement, ABC):
         return set(cls.config_fields.keys())
 
     def __init__(self, element_config: ElementConfig):
-        self._id = element_config.get("id")
-        self._order = element_config.get("order")
-        self._enabled = element_config.get("enabled")
-        self._separator = element_config.get("separator")
+        self._id = element_config.id
+        self._order = element_config.order
+        self._enabled = element_config.enabled
+        self._separator = element_config.separator
 
-        self._value = None
-        self._pattern = None
+        self._value: str | None = None
+        self._pattern: re.Pattern[str] | None = None
         self.cache_invalidated = True
 
     @property
@@ -193,10 +201,10 @@ class BaseElement(INameElement, ABC):
         return self._separator
 
     @property
-    def value(self) -> str:
+    def value(self) -> str | None:
         return self._value
 
-    def set_value(self, new_value: Any) -> None:
+    def set_value(self, new_value: str | None) -> None:
         if new_value is not None:
             try:
                 self._value = str(new_value)
@@ -230,13 +238,15 @@ class BaseElement(INameElement, ABC):
         if self._pattern is None:
             log.debug(f"Cache is not initialized for {self.id}. Initializing cache...")
             self.initialize_cache()
+            if self._pattern is None:
+                return False
         match = self._pattern.search(name)
         if match:
             self._value = match.group(self.id)
             return True
         return False
 
-    def render(self) -> Tuple[str, str]:
+    def render(self) -> Tuple[str, str] | None:
         """
         要素が有効かつ値が存在する場合、(separator, value) の組を返す
         """
@@ -263,14 +273,25 @@ class ICounter(ABC):
 
     @property
     @abstractmethod
-    def value_int(self) -> int:
+    def value(self) -> str | None:
+        """Get counter's string value"""
+        pass
+
+    @property
+    @abstractmethod
+    def value_int(self) -> int | None:
         """Get counter's integer value"""
         pass
 
     @value_int.setter
     @abstractmethod
-    def value_int(self, value: int) -> None:
+    def value_int(self, value: int | None) -> None:
         """Set counter's integer value"""
+        pass
+
+    @abstractmethod
+    def set_value(self, new_value: str | None) -> None:
+        """Set counter's string value"""
         pass
 
     @abstractmethod
@@ -308,12 +329,14 @@ class BaseCounter(BaseElement, ICounter):
         self.forward = None
         self.backward = None
 
+    # TODO: INameElementとICounterを継承して、BaseCounterを作成する
+
     @property
-    def value_int(self) -> int:
+    def value_int(self) -> int | None:
         return self._value_int
 
     @value_int.setter
-    def value_int(self, value: int) -> None:
+    def value_int(self, value: int | None) -> None:
         if value is not None:
             self._value_int = value
             self._value = self.format_value(value)
@@ -321,7 +344,7 @@ class BaseCounter(BaseElement, ICounter):
             self._value_int = None
             self._value = None
 
-    def set_value(self, new_value: Any) -> None:
+    def set_value(self, new_value: str | None) -> None:
         """BaseElementのset_valueをオーバーライドして値の同期を保証"""
         if new_value is None:
             self._value = None
@@ -364,6 +387,8 @@ class BaseCounter(BaseElement, ICounter):
         """Parse counter value from name string"""
         if self._pattern is None:
             self.initialize_cache()
+            if self._pattern is None:
+                return False
 
         match = self._pattern.search(name)
         if match:

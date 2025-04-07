@@ -90,7 +90,7 @@ class BaseRenameTarget(IRenameTarget, ABC):
         return self._data.name
 
     def set_name(self, name: str, *, force_rename: bool = False) -> str:
-        if issubclass(self._data, bpy.types.ID) and bpy.app.version >= (4, 3, 0):
+        if isinstance(self._data, bpy.types.ID) and bpy.app.version >= (4, 3, 0):
             return self._data.rename(name, mode="ALWAYS" if force_rename else "NEVER")
         else:
             force_rename and print(f"Force Rename is not supported for {self._data}")
@@ -182,56 +182,71 @@ class RenameTargetRegistry:
         """デフォルトのターゲットクラスを登録"""
         print("RenameTargetRegistry: Initializing defaults...")  # TEMPLOG
 
-        try:
-            from . import targets
-            import inspect
-        except ImportError as e:
-            print(f"RenameTargetRegistry: Error importing targets module: {e}")
-            return
+        from .targets import (
+            ObjectRenameTarget,
+            BoneRenameTarget,
+            PoseBoneRenameTarget,
+            EditBoneRenameTarget,
+            # NodeRenameTarget,
+            # StripRenameTarget,
+            # FileRenameTarget,
+        )
 
-        registered_count = 0
-        print(
-            "RenameTargetRegistry: --- Checking members in targets module ---"
-        )  # TEMPLOG
-        for name, obj in inspect.getmembers(targets):
-            print(f"RenameTargetRegistry: Checking member: {name}")  # TEMPLOG
-            is_cls = inspect.isclass(obj)
-            print(f"RenameTargetRegistry:   - Is Class: {is_cls}")  # TEMPLOG
-            if not is_cls:
-                print(f"RenameTargetRegistry:   - Skipping (not a class).")  # TEMPLOG
-                continue
+        self.register_target_class(ObjectRenameTarget)
+        self.register_target_class(BoneRenameTarget)
+        self.register_target_class(PoseBoneRenameTarget)
+        self.register_target_class(EditBoneRenameTarget)
 
-            is_subclass_of_base = issubclass(obj, BaseRenameTarget)
-            print(
-                f"RenameTargetRegistry:   - Is Subclass of BaseRenameTarget: {is_subclass_of_base}"
-            )  # TEMPLOG
-            is_not_base = obj is not BaseRenameTarget
-            print(
-                f"RenameTargetRegistry:   - Is Not BaseRenameTarget itself: {is_not_base}"
-            )  # TEMPLOG
-            is_concrete = not inspect.isabstract(obj)
-            print(
-                f"RenameTargetRegistry:   - Is Concrete (not abstract): {is_concrete}"
-            )  # TEMPLOG
+        # try:
+        #     from . import targets
+        #     import inspect
+        # except ImportError as e:
+        #     print(f"RenameTargetRegistry: Error importing targets module: {e}")
+        #     return
 
-            # 登録条件の判定
-            # if inspect.isclass(obj) and issubclass(obj, BaseRenameTarget) and obj is not BaseRenameTarget and not inspect.isabstract(obj):
-            if is_cls and is_subclass_of_base and is_not_base and is_concrete:
-                subclass = obj
-                print(
-                    f"RenameTargetRegistry:   -> Registering {subclass.__name__}..."
-                )  # TEMPLOG
-                self.register_target_class(subclass)
-                registered_count += 1
-            else:
-                print(
-                    f"RenameTargetRegistry:   -> Skipping {name} (doesn't meet all criteria)."
-                )  # TEMPLOG
-        print("RenameTargetRegistry: --- Finished checking members ---")  # TEMPLOG
+        # registered_count = 0
+        # print(
+        #     "RenameTargetRegistry: --- Checking members in targets module ---"
+        # )  # TEMPLOG
+        # for name, obj in inspect.getmembers(targets):
+        #     print(f"RenameTargetRegistry: Checking member: {name}")  # TEMPLOG
+        #     is_cls = inspect.isclass(obj)
+        #     print(f"RenameTargetRegistry:   - Is Class: {is_cls}")  # TEMPLOG
+        #     if not is_cls:
+        #         print(f"RenameTargetRegistry:   - Skipping (not a class).")  # TEMPLOG
+        #         continue
 
-        print(
-            f"RenameTargetRegistry: Default initialization complete. Registered {registered_count} classes from targets module."
-        )  # TEMPLOG
+        #     is_subclass_of_base = issubclass(obj, BaseRenameTarget)
+        #     print(
+        #         f"RenameTargetRegistry:   - Is Subclass of BaseRenameTarget: {is_subclass_of_base}"
+        #     )  # TEMPLOG
+        #     is_not_base = obj is not BaseRenameTarget
+        #     print(
+        #         f"RenameTargetRegistry:   - Is Not BaseRenameTarget itself: {is_not_base}"
+        #     )  # TEMPLOG
+        #     is_concrete = not inspect.isabstract(obj)
+        #     print(
+        #         f"RenameTargetRegistry:   - Is Concrete (not abstract): {is_concrete}"
+        #     )  # TEMPLOG
+
+        #     # 登録条件の判定
+        #     # if inspect.isclass(obj) and issubclass(obj, BaseRenameTarget) and obj is not BaseRenameTarget and not inspect.isabstract(obj):
+        #     if is_cls and is_subclass_of_base and is_not_base and is_concrete:
+        #         subclass = obj
+        #         print(
+        #             f"RenameTargetRegistry:   -> Registering {subclass.__name__}..."
+        #         )  # TEMPLOG
+        #         self.register_target_class(subclass)
+        #         registered_count += 1
+        #     else:
+        #         print(
+        #             f"RenameTargetRegistry:   -> Skipping {name} (doesn't meet all criteria)."
+        #         )  # TEMPLOG
+        # print("RenameTargetRegistry: --- Finished checking members ---")  # TEMPLOG
+
+        # print(
+        #     f"RenameTargetRegistry: Default initialization complete. Registered {registered_count} classes from targets module."
+        # )  # TEMPLOG
 
     def register_target_class(self, target_class: Type[IRenameTarget]):
         """ターゲットクラスを bl_type と ol_type に基づいて登録"""
@@ -488,3 +503,8 @@ class TargetCollector:
                     traceback.print_exc()
 
         return targets
+
+
+def register():
+    registry = RenameTargetRegistry.get_instance()
+    registry.initialize()
