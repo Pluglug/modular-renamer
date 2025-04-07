@@ -516,8 +516,6 @@ class ModularRenamerPreferences(
         # Z軸の設定（デフォルトで無効だが、設定可能にする）
         position.zaxis_enabled = False
 
-        
-
         return True
 
     def draw(self, context):

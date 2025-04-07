@@ -72,6 +72,7 @@ log = logging.get_logger(__name__)
 
 class NumericCounter(BaseCounter):
     """Simple numeric counter with configurable digits"""
+
     element_type = "numeric_counter"  # BaseElementを継承していないため
 
     def __init__(self, element_config):

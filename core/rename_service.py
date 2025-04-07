@@ -123,7 +123,8 @@ class RenameService:
         targets = self._target_collector.collect_targets()
         if not targets:
             log.error("リネーム対象が見つかりません")
-            return RenameContext([], pattern)  # 空のターゲットリストでRenameContextを作成
+            # 空のターゲットリストでRenameContextを作成
+            return RenameContext([], pattern)
 
         return RenameContext(targets, pattern)
 

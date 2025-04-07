@@ -87,7 +87,7 @@ class PatternFactory:
         if element_class is None:
             log.error(f"要素タイプ '{element_type}' は見つかりません")
             return None
-        
+
         config_fields = element_class.config_fields
 
         # これで出来るはずなのだけど
@@ -103,7 +103,7 @@ class PatternFactory:
             "id": getattr(element_data, "id", ""),
             "order": getattr(element_data, "order", 0),
             "enabled": getattr(element_data, "enabled", True),
-            "separator": getattr(element_data, "separator", "_")
+            "separator": getattr(element_data, "separator", "_"),
         }
 
         # 追加の設定フィールドを取得
@@ -264,12 +264,12 @@ class PatternFacade:
         self._context = context
         self._pattern_factory = PatternFactory(ElementRegistry.get_instance())
         self._pattern_cache = PatternCache.get_instance()
-        
+
         # ElementRegistryの初期化を確実に行う
         element_registry = ElementRegistry.get_instance()
         if not element_registry._is_initialized:
             element_registry._initialize_default_elements()
-            
+
         if not self._pattern_cache:
             log.info("キャッシュが空のため同期を行います")
             self.synchronize_patterns()
@@ -310,7 +310,7 @@ class PatternFacade:
     #                 ]
     #             }
     #         ]
-            
+
     #         # デフォルトパターンを作成
     #         for pattern_data in default_patterns:
     #             try:
@@ -319,7 +319,7 @@ class PatternFacade:
     #                 log.info(f"デフォルトパターン '{pattern_data['id']}' を作成しました")
     #             except Exception as e:
     #                 log.error(f"デフォルトパターン '{pattern_data['id']}' の作成に失敗: {e}")
-                    
+
     #     except Exception as e:
     #         log.error(f"デフォルトパターンの作成に失敗: {e}")
 
@@ -404,7 +404,9 @@ class PatternFacade:
                     log.debug(f"Updating pattern: {pattern.id}")
                     self.update_pattern(pattern)
                 except Exception as e:
-                    log.error(f"パターン '{pattern.id}' の同期中にエラーが発生しました: {e}")
+                    log.error(
+                        f"パターン '{pattern.id}' の同期中にエラーが発生しました: {e}"
+                    )
                     continue
 
         # キャッシュの整合性を確認

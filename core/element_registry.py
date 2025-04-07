@@ -66,10 +66,20 @@ class ElementRegistry:
             position_element,
             counter_element,
         )
-        self.register_element_type(text_element.TextElement.element_type, text_element.TextElement)
-        self.register_element_type(position_element.PositionElement.element_type, position_element.PositionElement)
-        self.register_element_type(counter_element.NumericCounter.element_type, counter_element.NumericCounter)
-        self.register_element_type(counter_element.BlenderCounter.element_type, counter_element.BlenderCounter)
+
+        self.register_element_type(
+            text_element.TextElement.element_type, text_element.TextElement
+        )
+        self.register_element_type(
+            position_element.PositionElement.element_type,
+            position_element.PositionElement,
+        )
+        self.register_element_type(
+            counter_element.NumericCounter.element_type, counter_element.NumericCounter
+        )
+        self.register_element_type(
+            counter_element.BlenderCounter.element_type, counter_element.BlenderCounter
+        )
 
         self._is_initialized = True
 
