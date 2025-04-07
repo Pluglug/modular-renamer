@@ -9,6 +9,7 @@ from ..addon import prefs
 from ..utils.logging import get_logger
 from .conflict_resolver import ConflictResolver
 from .element import ICounter
+from ..elements.counter_element import BlenderCounter
 from .element_registry import ElementRegistry
 from .namespace import NamespaceCache
 from .pattern import NamingPattern
@@ -126,6 +127,7 @@ class RenameService:
             # 空のターゲットリストでRenameContextを作成
             return RenameContext([], pattern)
 
+        log.info(f"targets: {[t.get_name() for t in targets]}")
         return RenameContext(targets, pattern)
 
     def generate_rename_plan(
@@ -149,9 +151,21 @@ class RenameService:
             # ターゲットの名前を解析
             self.r_ctx.pattern.parse_name(target.get_name())
 
+            # # XXX: カウンター要素の値を更新
+            # for counter in counter_elements:
+            #     if isinstance(counter, BlenderCounter):
+            #         # BlenderCounterの値を優先的に使用
+            #         if counter.value is not None:
+            #             counter_value = int(counter.value.lstrip('.'))
+            #             counter.set_value(str(counter_value))
+            #     else:
+            #         # その他のカウンターはインデックスを使用
+            #         counter.set_value(str(idx + 1))
+
+            # その他の要素を更新
             self.r_ctx.pattern.update_elements(updates)
 
-            # カウンター要素に対してのみインデックスを加算
+            # カウンター要素に対してインデックスを加算
             for counter in counter_elements:
                 counter.add(idx)
 
@@ -166,10 +180,12 @@ class RenameService:
                     original_name=target.get_name(),
                     proposed_name=proposed_name,
                     final_name=new_name,
-                    # success=True,
                 )
             )
 
+        log.info(
+            f"results:\n{chr(10).join([f'{r.original_name} -> {r.final_name}' for r in self.r_ctx.results])}"
+        )
         return self.r_ctx
 
     def apply_rename_plan(self) -> None:

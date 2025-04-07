@@ -63,10 +63,21 @@ class MODRENAMER_OT_Rename(bpy.types.Operator):
         )
 
     def execute(self, context: Context) -> Set[str]:
-        pr = prefs(context)
+        log.info(
+            f"\n{MODRENAMER_OT_Rename.execute}: "
+            f"{self.target_element} {self.index} {self.operation_type}"
+        )
+        log.info(f"context.mode: {context.mode}")
 
-        target_element = pr.get_active_pattern().get_element_by_id(self.target_element)
+        pr = prefs(context)
+        pattern = pr.get_active_pattern()
+        if not pattern:
+            self.report({"ERROR"}, "アクティブなパターンが見つかりません")
+            return {"CANCELLED"}
+
+        target_element = pattern.get_element_by_id(self.target_element)
         if not target_element:
+            log.error(f"target_element not found: {self.target_element}")
             self.report({"ERROR"}, "リネーム対象が見つかりません")
             return {"CANCELLED"}
 
@@ -75,6 +86,7 @@ class MODRENAMER_OT_Rename(bpy.types.Operator):
         else:
             target_item = target_element.get_item_by_idx(self.index)
             if not target_item:
+                log.error(f"target_item not found: {self.index}")
                 self.report({"ERROR"}, "リネーム対象が見つかりません")
                 return {"CANCELLED"}
             target_value = target_item.name

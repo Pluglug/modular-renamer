@@ -74,7 +74,7 @@ def uprefs(context: bpy.types.Context = bpy.context) -> bpy.types.Preferences:
     raise AttributeError("プリファレンスにアクセスできません")
 
 
-def prefs(context: bpy.types.Context = bpy.context) -> bpy.types.AddonPreferences:
+def prefs(context: bpy.types.Context = bpy.context) -> "ModularRenamerPreferences":
     """
     アドオン設定を取得
 

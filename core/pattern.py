@@ -69,7 +69,10 @@ class NamingPattern:
             element.parse(name)
 
         log.debug(f"NamingPattern.parse_name(name={name})")
-        log.debug("\n".join([f"  - {e.id}: {e.value}" for e in self.elements]))
+        log.debug(
+            "parsed elements:\n"
+            + "\n".join([f"  - {e.id}: {e.value}" for e in self.elements])
+        )
 
         return self
 

@@ -351,12 +351,12 @@ class ModularRenamerPreferences(
                     element_config["items"] = [item.name for item in element.items]
                 elif element.element_type == "numeric_counter":
                     element_config["padding"] = element.padding
-                elif element.element_type == "regex":
-                    element_config["pattern"] = element.pattern
-                elif element.element_type == "date":
-                    element_config["date_format"] = element.date_format
-                elif element.element_type == "free_text":
-                    element_config["default_text"] = element.default_text
+                # elif element.element_type == "regex":
+                #     element_config["pattern"] = element.pattern
+                # elif element.element_type == "date":
+                #     element_config["date_format"] = element.date_format
+                # elif element.element_type == "free_text":
+                #     element_config["default_text"] = element.default_text
                 elif element.element_type == "position":
                     element_config["position_type"] = element.position_type
 
