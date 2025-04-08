@@ -7,7 +7,11 @@ import itertools
 import random
 from typing import Dict, List, Optional, Self
 
-from ..elements.counter_element import blender_counter_element_config
+from ..elements.counter_element import (
+    blender_counter_element_config,
+    NumericCounter,
+    BlenderCounter,
+)
 from ..utils.logging import get_logger
 from .element import ElementConfig, INameElement
 from .element_registry import ElementRegistry
@@ -67,6 +71,12 @@ class NamingPattern:
         # 名前を解析
         for element in self.elements:
             element.parse(name)
+
+        # BlenderCounterの値をNumericCounterにコピー
+        blender_counter = next(e for e in self.elements if isinstance(e, BlenderCounter))
+        numeric_counter = next(e for e in self.elements if isinstance(e, NumericCounter))
+        if blender_counter.value:
+            numeric_counter.take_over_counter(blender_counter)
 
         log.debug(f"NamingPattern.parse_name(name={name})")
         log.debug(

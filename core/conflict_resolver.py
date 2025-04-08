@@ -51,6 +51,7 @@ class ConflictResolver:
         # ターゲットの名前空間を取得
         namespace = self._get_namespace(target)
         if not namespace:
+            log.warning(f"Namespace not found for target: {target}")
             return proposed_name  # 名前空間がない場合は提案名をそのまま返す
 
         # 現在の名前を取得
@@ -145,24 +146,24 @@ class ConflictResolver:
         numeric_counter = [
             e for e in pattern.elements if isinstance(e, NumericCounter)
         ][-1]
-        blender_counter = [
-            e for e in pattern.elements if isinstance(e, BlenderCounter)
-        ][-1]
+        # blender_counter = [
+        #     e for e in pattern.elements if isinstance(e, BlenderCounter)
+        # ][-1]
 
         log.info(f"numeric_counter: {numeric_counter.value}")
-        log.info(f"blender_counter: {blender_counter.value}")
+        # log.info(f"blender_counter: {blender_counter.value}")
 
-        # BlenderCounterの値を優先的に使用
-        if blender_counter.value is not None:
-            # BlenderCounterの値を直接設定
-            counter_value = int(blender_counter.value.lstrip('.'))
-            numeric_counter.set_value(str(counter_value))
-            log.info(f"set counter value: {counter_value}")
-        else:
-            # BlenderCounterの値がない場合は、現在のNumericCounterの値を使用
-            current_value = numeric_counter.value_int or 1
-            numeric_counter.set_value(str(current_value))
-            log.info(f"using current counter: {current_value}")
+        # # BlenderCounterの値を優先的に使用
+        # if blender_counter.value is not None:
+        #     # BlenderCounterの値を直接設定
+        #     counter_value = int(blender_counter.value.lstrip("."))
+        #     numeric_counter.set_value(str(counter_value))
+        #     log.info(f"set counter value: {counter_value}")
+        # else:
+        #     # BlenderCounterの値がない場合は、現在のNumericCounterの値を使用
+        #     current_value = numeric_counter.value_int or 1
+        #     numeric_counter.set_value(str(current_value))
+        #     log.info(f"using current counter: {current_value}")
 
         if not numeric_counter:
             # カウンター要素がない場合は単純にサフィックスを追加
@@ -180,14 +181,14 @@ class ConflictResolver:
             return new_name
 
         # 競合が解消されるまでカウンターを増分
-        start_value = numeric_counter.value_int or 1
+        start_value = numeric_counter.value_int or 1  # incrementを利用する場合不要
         max_value = start_value + 1000
 
         for idx in range(start_value, max_value):
             # TODO: Patternがincrementすべき
-            # counter.increment()
-            # new_name = pattern.render_name()
-            proposed_name = numeric_counter.gen_proposed_name(idx)
+            numeric_counter.increment()
+            proposed_name = pattern.render_name()
+            # proposed_name = numeric_counter.gen_proposed_name(idx)
             log.debug(f"resolving with counter: {proposed_name}")
 
             if not namespace.contains(proposed_name):

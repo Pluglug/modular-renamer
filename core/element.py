@@ -420,6 +420,7 @@ class BaseCounter(BaseElement, ICounter):
             return
 
         if not force and self.value is not None and self.value_int > 0:
+            self.add(other.value_int)
             other.set_value(None)
             return
 
