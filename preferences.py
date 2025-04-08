@@ -4,16 +4,20 @@ import json
 from typing import List, Optional
 
 import bpy
-from bpy.props import (BoolProperty, CollectionProperty, EnumProperty,
-                       FloatProperty, IntProperty, PointerProperty,
-                       StringProperty)
+from bpy.props import (
+    BoolProperty,
+    CollectionProperty,
+    EnumProperty,
+    FloatProperty,
+    IntProperty,
+    PointerProperty,
+    StringProperty,
+)
 
 from .addon import ADDON_ID, prefs
-from .core.constants import (ELEMENT_TYPE_ITEMS, POSITION_ENUM_ITEMS,
-                             SEPARATOR_ITEMS)
-from .core.pattern_system import PatternFacade
-from .property_groups import (NamingElementItemProperty, NamingElementProperty,
-                              NamingPatternProperty, modified_updater)
+from .core.constants import ELEMENT_TYPE_ITEMS, POSITION_ENUM_ITEMS, SEPARATOR_ITEMS
+from .core.pattern.facade import PatternFacade
+from .ui.property_groups import NamingPatternProperty
 from .utils.logging import AddonLoggerPreferencesMixin, get_logger
 
 log = get_logger(__name__)

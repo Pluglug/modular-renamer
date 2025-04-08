@@ -1,6 +1,6 @@
 # pyright: reportInvalidTypeForm=false
 import random
-from typing import Set, Optional
+from typing import Optional, Set
 
 import bpy
 from bpy.props import (
@@ -12,12 +12,14 @@ from bpy.props import (
 )
 from bpy.types import Context
 
-from .addon import prefs
-from .core.constants import ELEMENT_TYPE_ITEMS, POSITION_ENUM_ITEMS
-from .core.pattern_system import PatternFacade
-from .core.rename_service import OperationScope, RenameOperationType, RenameService
-from .core.collector import TargetCollector
-from .utils.logging import get_logger
+from ..addon import prefs
+from ..core.constants import ELEMENT_TYPE_ITEMS, POSITION_ENUM_ITEMS
+from ..core.pattern.facade import PatternFacade
+from ..core.service.rename_context import RenameOperationType
+from ..core.service.rename_service import RenameService
+from ..core.target.collector import TargetCollector
+from ..core.target.scope import OperationScope
+from ..utils.logging import get_logger
 
 log = get_logger(__name__)
 
@@ -62,7 +64,7 @@ class MODRENAMER_OT_Rename(bpy.types.Operator):
             ).get_selected_items()
         )
 
-    def execute(self, context: Context) -> Set[str]:
+    def execute(self, context: Context):
         log.info(
             f"\n{MODRENAMER_OT_Rename.execute}: "
             f"{self.target_element} {self.index} {self.operation_type}"

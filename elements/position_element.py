@@ -3,7 +3,7 @@ import re
 from typing import Optional
 
 from ..core.constants import POSITION_ENUM_ITEMS
-from ..core.element import BaseElement, ElementConfig
+from ..core.contracts.element import BaseElement, ElementConfig
 from ..utils import logging
 
 log = logging.get_logger(__name__)

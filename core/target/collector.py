@@ -1,22 +1,22 @@
-import inspect
-from abc import ABC, abstractmethod
-from contextlib import contextmanager
-
-from typing import Any, ClassVar, Dict, List, Optional, Set, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Set, Type, Union
 
 import bpy
-from bpy.types import Context, Object, PoseBone, EditBone, Node
+from bpy.types import Context, EditBone, Node, Object, PoseBone
 
-from .blender.outliner_access import OutlinerElementInfo, get_selected_outliner_elements
-from .blender.pointer_cache import PointerCache
-from .scope import CollectionSource, OperationScope
-from .rename_target import IRenameTarget, RenameTargetRegistry
+from ..blender.outliner_access import (
+    OutlinerElementInfo,
+    get_selected_outliner_elements,
+)
+from ..blender.pointer_cache import PointerCache
+from ..contracts.target import IRenameTarget
+from ..target.registry import RenameTargetRegistry
+from ..target.scope import CollectionSource, OperationScope
 
 
 class TargetCollector:
     """リネーム対象収集クラス"""
 
-    def __init__(self, context: bpy.types.Context, scope: OperationScope):
+    def __init__(self, context: Context, scope: OperationScope):
         self.context = context
         self.scope = scope
         self.registry = RenameTargetRegistry.get_instance()
@@ -96,7 +96,7 @@ class TargetCollector:
 
         if ctx_dict := self._get_override_dict_for_area_type("SEQUENCE_EDITOR"):
             with self.context.temp_override(**ctx_dict):
-                if bpy.app.version < (4, 4, 0):
+                if bpy.app.version < (4, 4, 0):  # TODO: バージョンチェックを移行
                     return self.context.selected_sequences or []
                 else:
                     return self.context.selected_strips or []

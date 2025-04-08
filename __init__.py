@@ -23,12 +23,12 @@ addon.init_addon(
     module_patterns=[
         "core.*",
         "utils.*",
-        "ui",
-        # "targets.*",
+        "ui.property_groups",
+        "ui.ui",
+        "targets",
         "elements.*",
-        "property_groups",
-        # "operators.*",
         "preferences",
+        # "operators.*",
     ],
     # トラブルシューティング用（順序強制指定）
     # force_order=[

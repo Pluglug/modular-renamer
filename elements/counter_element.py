@@ -1,73 +1,11 @@
 import random
 from typing import Optional, Tuple
 
-from ..core.element import BaseCounter, ElementConfig
+from ..core.contracts.counter import BaseCounter
+from ..core.contracts.element import ElementConfig
 from ..utils import logging, regex_utils
 
 log = logging.get_logger(__name__)
-
-
-# class CounterElement(BaseElement):
-#     """
-#     固定桁数のカウンター要素
-#     """
-
-#     def __init__(self, element_config):
-#         super().__init__(element_config)
-#         # 'custom' or 'blender'
-#         self.counter_type = element_config.get("counter_type")
-#         if self.counter_type == "blender":
-
-#             self._order = 1000
-#             self._enabled = False
-#             self._separator = "."
-#             self.padding = 3
-#         else:
-#             self.padding = element_config.get("padding", 2)
-
-#         self.forward = None
-#         self.backward = None
-
-#     def standby(self) -> None:
-#         super().standby()
-#         self.forward = None
-#         self.backward = None
-
-#     def parse(self, name: str) -> bool:
-#         if self._pattern is None:
-#             log.debug(f"Cache isn not initialized for {self.id}. Initializing cache...")
-#             self.initialize_cache()
-#         match = self._pattern.match(name)
-#         if match:
-#             self._value = match.group(self.id)
-#             self.forward = match.string[: match.start(self.id)]
-#             self.backward = match.string[match.end(self.id) :]
-#             return True
-#         return False
-
-#     @add_separator_by_order
-#     @add_named_capture_group
-#     def _build_pattern(self) -> str:
-#         if self.counter_type == "blender":
-#             return "\\.\\d{3}$"
-#         return f"\\d{{{self.padding}}}"
-
-#     def increment(self) -> None:
-#         """
-#         カウンター値をインクリメントし、桁数に合わせた文字列にフォーマットする
-#         """
-#         if self._value is None:
-#             num = 1
-#         else:
-#             num = int(self._value) + 1
-#         self._value = f"{num:0{self.padding}d}"
-
-#     def gen_proposed_name(self, i: int) -> str:
-#         return f"{self.forward}{i:0{self.padding}d}{self.backward}"
-
-#     def generate_random_value(self) -> Tuple[str, str]:
-#         random_value = f"{random.randint(0, 10**self.padding):0{self.padding}d}"
-#         return self.separator, random_value
 
 
 class NumericCounter(BaseCounter):

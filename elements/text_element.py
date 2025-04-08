@@ -2,7 +2,7 @@ import random
 import re
 from typing import Optional, Tuple
 
-from ..core.element import BaseElement, ElementConfig
+from ..core.contracts.element import BaseElement, ElementConfig
 from ..utils import logging, regex_utils
 
 log = logging.get_logger(__name__)

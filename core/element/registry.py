@@ -1,12 +1,8 @@
-"""
-名前要素の登録・管理・生成
-"""
-
 import inspect
 from typing import Dict, List, Optional, Type
 
-from ..utils.logging import get_logger
-from .element import ElementConfig, INameElement
+from ...utils.logging import get_logger
+from ..contracts.element import ElementConfig, INameElement
 
 log = get_logger(__name__)
 
@@ -17,6 +13,8 @@ class ElementRegistry:
     """
 
     _instance = None
+    _element_types: Dict[str, Type[INameElement]] = {}
+    _is_initialized: bool = False
 
     def __new__(cls):
         if cls._instance is None:
@@ -61,11 +59,7 @@ class ElementRegistry:
         #         except TypeError as e:
         #             log.warning(f"要素タイプの登録に失敗: {e}")
 
-        from ..elements import (
-            text_element,
-            position_element,
-            counter_element,
-        )
+        from ...elements import counter_element, position_element, text_element
 
         self.register_element_type(
             text_element.TextElement.element_type, text_element.TextElement

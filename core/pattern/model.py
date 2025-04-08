@@ -1,19 +1,13 @@
-"""
-命名パターン定義と名前構築処理
-旧 NamingProcessor
-"""
-
 import itertools
 import random
 from typing import Dict, List, Optional, Self
 
-from ..elements.counter_element import (
-    blender_counter_element_config,
-    NumericCounter,
+from ..contracts.element import INameElement
+from ...elements.counter_element import (
     BlenderCounter,
+    NumericCounter,
 )
-from ..utils.logging import get_logger
-from .element import INameElement
+from ...utils.logging import get_logger
 
 log = get_logger(__name__)
 

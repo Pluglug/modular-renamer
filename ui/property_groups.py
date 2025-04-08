@@ -13,8 +13,8 @@ from bpy.props import (
     StringProperty,
 )
 
-from .core.constants import ELEMENT_TYPE_ITEMS, POSITION_ENUM_ITEMS, SEPARATOR_ITEMS
-from .utils.logging import get_logger
+from ..core.constants import ELEMENT_TYPE_ITEMS, POSITION_ENUM_ITEMS, SEPARATOR_ITEMS
+from ..utils.logging import get_logger
 
 log = get_logger(__name__)
 
