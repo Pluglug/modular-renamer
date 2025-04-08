@@ -1,6 +1,6 @@
 # pyright: reportInvalidTypeForm=false
 import random
-from typing import Set
+from typing import Set, Optional
 
 import bpy
 from bpy.props import (
@@ -70,31 +70,48 @@ class MODRENAMER_OT_Rename(bpy.types.Operator):
         log.info(f"context.mode: {context.mode}")
 
         pr = prefs(context)
-        pattern = pr.get_active_pattern()
-        if not pattern:
+        pf = PatternFacade(context)
+        active_pattern = pf.get_active_pattern()
+        if not active_pattern:
             self.report({"ERROR"}, "アクティブなパターンが見つかりません")
             return {"CANCELLED"}
 
-        target_element = pattern.get_element_by_id(self.target_element)
-        if not target_element:
-            log.error(f"target_element not found: {self.target_element}")
-            self.report({"ERROR"}, "リネーム対象が見つかりません")
+        target_element_instance = active_pattern.get_element_by_id(self.target_element)
+        if not target_element_instance:
+            log.error(f"target_element_instance not found: {self.target_element}")
+            self.report({"ERROR"}, "リネーム対象要素のインスタンスが見つかりません")
             return {"CANCELLED"}
 
-        if target_element.element_type == "numeric_counter":
+        target_value: Optional[str | int] = None
+        if target_element_instance.element_type == "numeric_counter":
             target_value = self.index
+        elif target_element_instance.element_type == "position":
+            target_value = target_element_instance.get_value_by_idx(self.index)
+            if target_value is None:
+                log.error(f"position value not found for index: {self.index}")
+                self.report({"ERROR"}, "位置の値が見つかりません")
+                return {"CANCELLED"}
         else:
-            target_item = target_element.get_item_by_idx(self.index)
+            target_element_pg = pr.get_active_pattern().get_element_by_id(
+                self.target_element
+            )
+            if not target_element_pg:
+                log.error(f"target_element PG not found: {self.target_element}")
+                self.report({"ERROR"}, "リネーム対象要素が見つかりません")
+                return {"CANCELLED"}
+            target_item = target_element_pg.get_item_by_idx(self.index)
             if not target_item:
-                log.error(f"target_item not found: {self.index}")
-                self.report({"ERROR"}, "リネーム対象が見つかりません")
+                log.error(
+                    f"target_item not found: {self.index} for element {target_element_pg.id}"
+                )
+                self.report({"ERROR"}, "リネーム対象のアイテムが見つかりません")
                 return {"CANCELLED"}
             target_value = target_item.name
 
         if self.operation_type == "ADD_REPLACE":
-            update_dict = {target_element.id: target_value}
+            update_dict = {target_element_instance.id: target_value}
         else:
-            update_dict = {target_element.id: None}
+            update_dict = {target_element_instance.id: None}
 
         rs = RenameService(context, OperationScope.from_context(context))
         if not rs.r_ctx:
@@ -470,9 +487,10 @@ class MODRENAMER_PT_MainPanel(bpy.types.Panel):
     def draw_position_element(self, layout, element):
         """Draw UI for a position element in normal mode"""
         # すべての有効な軸の値を表示
+        current_index = 0
 
         # X軸の値
-        if element.xaxis_enabled and element.xaxis_type:
+        if element.xaxis_enabled:
             pos_parts = element.xaxis_type.split("|")
             if len(pos_parts) == 2:
                 left, right = pos_parts
@@ -482,16 +500,19 @@ class MODRENAMER_PT_MainPanel(bpy.types.Panel):
                 op = row.operator("modrenamer.rename", text=left)
                 op.operation_type = RenameOperationType.ADD_REPLACE
                 op.target_element = element.id
-                op.index = 0
+                op.index = current_index
+                current_index += 1
 
                 # Right position
                 op = row.operator("modrenamer.rename", text=right)
                 op.operation_type = RenameOperationType.ADD_REPLACE
                 op.target_element = element.id
-                op.index = 1
+                op.index = current_index
+                current_index += 1
 
         # Y軸の値
         if element.yaxis_enabled:
+            # 定数から取得 (Top|Bot)
             pos_parts = POSITION_ENUM_ITEMS["YAXIS"][0][0].split("|")
             if len(pos_parts) == 2:
                 top, bot = pos_parts
@@ -501,16 +522,19 @@ class MODRENAMER_PT_MainPanel(bpy.types.Panel):
                 op = row.operator("modrenamer.rename", text=top)
                 op.operation_type = RenameOperationType.ADD_REPLACE
                 op.target_element = element.id
-                op.index = 0
+                op.index = current_index
+                current_index += 1
 
                 # Bottom position
                 op = row.operator("modrenamer.rename", text=bot)
                 op.operation_type = RenameOperationType.ADD_REPLACE
                 op.target_element = element.id
-                op.index = 1
+                op.index = current_index
+                current_index += 1
 
         # Z軸の値
         if element.zaxis_enabled:
+            # 定数から取得 (Fr|Bk)
             pos_parts = POSITION_ENUM_ITEMS["ZAXIS"][0][0].split("|")
             if len(pos_parts) == 2:
                 front, back = pos_parts
@@ -520,13 +544,22 @@ class MODRENAMER_PT_MainPanel(bpy.types.Panel):
                 op = row.operator("modrenamer.rename", text=front)
                 op.operation_type = RenameOperationType.ADD_REPLACE
                 op.target_element = element.id
-                op.index = 0
+                op.index = current_index
+                current_index += 1
 
                 # Back position
                 op = row.operator("modrenamer.rename", text=back)
                 op.operation_type = RenameOperationType.ADD_REPLACE
                 op.target_element = element.id
-                op.index = 1
+                op.index = current_index
+                current_index += 1
+
+        # Remove ボタン (すべてのposition要素共通)
+        row = layout.row(align=True)
+        op = row.operator("modrenamer.rename", text="Remove", icon="X")
+        op.operation_type = RenameOperationType.REMOVE
+        op.target_element = element.id
+        # op.index は REMOVE 操作では使用されないため設定不要 (デフォルトの0で良い)
 
     def draw_counter_element(self, layout, element):
         """Draw UI for a counter element in normal mode"""

@@ -62,24 +62,51 @@ class PositionElement(BaseElement):
         return None
 
     def _build_pattern(self):
-        """Build pattern for position indicators with appropriate separator based on order"""
+        """Build pattern for position indicators for parsing"""
         if not self.position_values:
-            return f"(?P<{self.id}>)"
+            log.warning(f"No position values defined for element {self.id}")
+            # マッチしないように lookahead assertion を使う (絶対にマッチしないパターン)
+            return "(?!.)"
 
         # 位置値をエスケープして正規表現パターンを構築
         escaped_positions = [re.escape(pos) for pos in self.position_values]
         positions_pattern = "|".join(escaped_positions)
 
-        # 順序に基づいてセパレーターを適用
-        sep = re.escape(self.separator)
+        # 値のみをキャプチャする名前付きグループ
+        value_capture = f"(?P<{self.id}>{positions_pattern})"
 
-        if self.order == 0:  # 最初の要素
-            return f"(?P<{self.id}>{positions_pattern}){sep}?"
-        else:  # 順序が1以上の要素
-            return f"{sep}?(?P<{self.id}>{positions_pattern})"
+        # orderに基づいてセパレーターを含めるか決定
+        if self.order == 0:
+            # 先頭要素: セパレータなしで値のみマッチ
+            # 後続のセパレータは次の要素のパターンに含まれる想定
+            return value_capture
+        else:
+            # 2番目以降の要素: 先行するセパレータ + 値
+            # セパレータは non-capturing group (?:...) にして、位置の値だけをキャプチャ
+            sep = re.escape(self.separator)
+            # セパレータがオプショナルでないことに注意 (前の要素がある前提のため)
+            return f"(?:{sep}){value_capture}"
 
     def generate_random_value(self):
         """Generate a random position value"""
         if self.position_values:
             return random.choice(self.position_values)
         return "L"  # デフォルト値
+
+    def get_value_by_idx(self, index: int) -> Optional[str]:
+        """指定されたインデックスに対応する位置の値を取得する"""
+        # get_value_by_idx が呼ばれるのはUIからで、その時点での有効な軸の値リストが必要
+        combined_values = []
+        if self.xaxis_enabled and self.xaxis_values:
+            combined_values.extend(self.xaxis_values)
+        if self.yaxis_enabled and self.yaxis_values:
+            combined_values.extend(self.yaxis_values)
+        if self.zaxis_enabled and self.zaxis_values:
+            combined_values.extend(self.zaxis_values)
+
+        if 0 <= index < len(combined_values):
+            return combined_values[index]
+        log.warning(
+            f"Index {index} is out of range for position values: {combined_values}"
+        )
+        return None
