@@ -13,8 +13,7 @@ from ..elements.counter_element import (
     BlenderCounter,
 )
 from ..utils.logging import get_logger
-from .element import ElementConfig, INameElement
-from .element_registry import ElementRegistry
+from .element import INameElement
 
 log = get_logger(__name__)
 
@@ -73,8 +72,12 @@ class NamingPattern:
             element.parse(name)
 
         # BlenderCounterの値をNumericCounterにコピー
-        blender_counter = next(e for e in self.elements if isinstance(e, BlenderCounter))
-        numeric_counter = next(e for e in self.elements if isinstance(e, NumericCounter))
+        blender_counter = next(
+            e for e in self.elements if isinstance(e, BlenderCounter)
+        )
+        numeric_counter = next(
+            e for e in self.elements if isinstance(e, NumericCounter)
+        )
         if blender_counter.value:
             numeric_counter.take_over_counter(blender_counter)
 

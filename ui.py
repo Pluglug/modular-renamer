@@ -16,7 +16,7 @@ from .addon import prefs
 from .core.constants import ELEMENT_TYPE_ITEMS, POSITION_ENUM_ITEMS
 from .core.pattern_system import PatternFacade
 from .core.rename_service import OperationScope, RenameOperationType, RenameService
-from .core.rename_target import TargetCollector
+from .core.collector import TargetCollector
 from .utils.logging import get_logger
 
 log = get_logger(__name__)

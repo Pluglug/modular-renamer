@@ -14,7 +14,7 @@ from .element import ElementConfig, INameElement
 from .element_registry import ElementRegistry
 from .pattern import NamingPattern
 from ..elements.counter_element import blender_counter_element_config
-
+from ..property_groups import NamingPatternProperty, NamingElementProperty
 
 log = get_logger(__name__)
 
@@ -27,7 +27,7 @@ class PatternFactory:
     def __init__(self, element_registry: ElementRegistry):
         self._element_registry = element_registry
 
-    def create_pattern(self, pattern_data: PropertyGroup) -> NamingPattern:
+    def create_pattern(self, pattern_data: NamingPatternProperty) -> NamingPattern:
         """
         パターンを生成して返す
 
@@ -41,7 +41,9 @@ class PatternFactory:
         pattern = NamingPattern(id=pattern_data.id, elements=elements)
         return pattern
 
-    def _create_elements(self, pattern_data: PropertyGroup) -> List[INameElement]:
+    def _create_elements(
+        self, pattern_data: NamingPatternProperty
+    ) -> List[INameElement]:
         """要素を作成"""
         elements_config = self._create_elements_config(pattern_data)
         elements = []
@@ -66,7 +68,7 @@ class PatternFactory:
         return elements
 
     def _create_elements_config(
-        self, pattern_data: PropertyGroup
+        self, pattern_data: NamingPatternProperty
     ) -> List[ElementConfig]:
         """要素の設定を作成"""
         pattern_elements = pattern_data.elements
@@ -78,7 +80,9 @@ class PatternFactory:
 
         return elements_config
 
-    def _convert_to_element_config(self, element_data: PropertyGroup) -> ElementConfig:
+    def _convert_to_element_config(
+        self, element_data: NamingElementProperty
+    ) -> Optional[ElementConfig]:
         """BlenderPropertyをElementConfigに変換"""
         element_type = element_data.element_type
         log.info(f"element_type: {element_type}")
@@ -276,53 +280,6 @@ class PatternFacade:
 
         log.info("PatternFacadeが初期化されました")
 
-    # def _create_default_patterns(self) -> None:
-    #     """デフォルトパターンを作成"""
-    #     try:
-    #         # デフォルトパターンの定義
-    #         default_patterns = [
-    #             {
-    #                 "id": "pose_bone_default",
-    #                 "elements": [
-    #                     {
-    #                         "element_type": "text",
-    #                         "id": "prefix",
-    #                         "order": 0,
-    #                         "enabled": True,
-    #                         "separator": "",
-    #                         "items": ["Bone"]
-    #                     },
-    #                     {
-    #                         "element_type": "position",
-    #                         "id": "position",
-    #                         "order": 1,
-    #                         "enabled": True,
-    #                         "separator": "_"
-    #                     },
-    #                     {
-    #                         "element_type": "blender_counter",
-    #                         "id": "counter",
-    #                         "order": 2,
-    #                         "enabled": True,
-    #                         "separator": "",
-    #                         "digits": 2
-    #                     }
-    #                 ]
-    #             }
-    #         ]
-
-    #         # デフォルトパターンを作成
-    #         for pattern_data in default_patterns:
-    #             try:
-    #                 pattern = self._pattern_factory.create_pattern(pattern_data)
-    #                 self._pattern_cache[pattern_data["id"]] = pattern
-    #                 log.info(f"デフォルトパターン '{pattern_data['id']}' を作成しました")
-    #             except Exception as e:
-    #                 log.error(f"デフォルトパターン '{pattern_data['id']}' の作成に失敗: {e}")
-
-    #     except Exception as e:
-    #         log.error(f"デフォルトパターンの作成に失敗: {e}")
-
     # パターン管理
     def get_active_pattern(self) -> Optional[NamingPattern]:
         """アクティブなパターンを取得"""
@@ -343,13 +300,13 @@ class PatternFacade:
         except KeyError:
             return None
 
-    def create_pattern(self, pattern_data: PropertyGroup) -> NamingPattern:
+    def create_pattern(self, pattern_data: NamingPatternProperty) -> NamingPattern:
         """パターンを作成"""
         new_pattern = self._pattern_factory.create_pattern(pattern_data)
         self._pattern_cache[pattern_data.id] = new_pattern
         return new_pattern
 
-    def update_pattern(self, pattern_data: PropertyGroup) -> None:
+    def update_pattern(self, pattern_data: NamingPatternProperty) -> None:
         """
         パターンを更新
 
@@ -390,6 +347,10 @@ class PatternFacade:
         1. 新規・変更パターンの作成と登録
         2. 削除されたパターンの除去
         """
+        if not self._context:
+            log.warning("コンテキストが無効なため同期をスキップします")
+            return
+
         self._synchronize_modified_patterns()
         self._remove_deleted_patterns()
 
@@ -415,7 +376,9 @@ class PatternFacade:
                 log.debug(f"削除されたパターンをキャッシュから削除: {pattern_id}")
                 del self._pattern_cache[pattern_id]
 
-    def _should_update_pattern(self, pattern: PropertyGroup, cached_ids: set) -> bool:
+    def _should_update_pattern(
+        self, pattern: NamingPatternProperty, cached_ids: set
+    ) -> bool:
         """パターンの更新が必要かどうかを判定"""
         is_new = pattern.id not in cached_ids
         return is_new or pattern.modified
@@ -425,10 +388,15 @@ class PatternFacade:
         patterns = prefs(self._context).patterns
         prefs_pattern_ids = set(p.id for p in patterns)
         cached_pattern_ids = set(self._pattern_cache.keys())
+        removed_count = 0
 
         for pattern_id in cached_pattern_ids - prefs_pattern_ids:
             del self._pattern_cache[pattern_id]
-            log.info(f"パターン '{pattern_id}' がキャッシュから削除されました")
+            removed_count += 1
+            log.debug(f"パターン '{pattern_id}' がキャッシュから削除されました")
+
+        if removed_count > 0:
+            log.info(f"{removed_count}件のパターンがキャッシュから削除されました")
 
     # キャッシュ管理
     def clear_cache(self) -> None:
@@ -479,7 +447,7 @@ class PatternFacade:
                     "type": element.element_type,
                     **{
                         field: getattr(element, field)
-                        for field in type(element).get_config_names()
+                        for field in type(element).config_fields
                     },
                 }
                 for element in pattern.elements

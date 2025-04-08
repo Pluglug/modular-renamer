@@ -26,6 +26,7 @@ addon.init_addon(
         "ui",
         # "targets.*",
         "elements.*",
+        "property_groups",
         # "operators.*",
         "preferences",
     ],

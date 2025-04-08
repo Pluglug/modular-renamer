@@ -14,7 +14,8 @@ from .element_registry import ElementRegistry
 from .namespace import NamespaceCache
 from .pattern import NamingPattern
 from .pattern_system import PatternCache, PatternFacade
-from .rename_target import IRenameTarget, TargetCollector
+from .rename_target import IRenameTarget
+from .collector import TargetCollector
 from .scope import CollectionSource, OperationScope
 
 log = get_logger(__name__)

@@ -7,8 +7,8 @@ from .blender.outliner_access import OutlinerElementInfo
 from .blender.outliner_struct import BlenderIDTypes as BID
 from .blender.outliner_struct import OutlinerTypes as OT
 from .blender.pointer_cache import PointerCache
-from .rename_service import CollectionSource, OperationScope
 from .rename_target import BaseRenameTarget, IRenameTarget
+from .scope import CollectionSource, OperationScope
 
 
 class ObjectRenameTarget(BaseRenameTarget):
@@ -414,22 +414,3 @@ class EditBoneRenameTarget(BaseRenameTarget, BoneTargetMixin):
 #             return cls(source_item, context)
 
 #         return None
-
-
-# if False:
-#     # 実際の使用方法
-
-#     # コレクターを作成して対象を収集
-#     collector = Collector(context)
-#     targets = collector.collect_targets(CollectionSource.VIEW3D)
-
-#     if not targets:
-#         print("リネーム対象が見つかりません")
-#         return
-
-#     print(f"{len(targets)}個のリネーム対象が見つかりました")
-
-#     # 名前の変更処理
-#     for i, target in enumerate(targets):
-#         new_name = new_name_pattern.replace("{index}", str(i + 1))
-#         target.set_name(new_name)

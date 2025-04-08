@@ -13,8 +13,8 @@ from bpy.props import (
     StringProperty,
 )
 
-from .constants import ELEMENT_TYPE_ITEMS, POSITION_ENUM_ITEMS, SEPARATOR_ITEMS
-from ..utils.logging import get_logger
+from .core.constants import ELEMENT_TYPE_ITEMS, POSITION_ENUM_ITEMS, SEPARATOR_ITEMS
+from .utils.logging import get_logger
 
 log = get_logger(__name__)
 
@@ -25,7 +25,7 @@ class ModifiedPropMixin:
         if hasattr(self, "modified"):
             self.modified = True
         parent = getattr(self, "id_data", None)
-        if hasattr(parent, "_update_modified"):
+        if parent and hasattr(parent, "_update_modified"):
             parent._update_modified()
 
 
@@ -33,7 +33,7 @@ def modified_updater():
     return lambda self, context: self._update_modified()
 
 
-class NamingElementItem(bpy.types.PropertyGroup, ModifiedPropMixin):
+class NamingElementItemProperty(bpy.types.PropertyGroup, ModifiedPropMixin):
     """Single item within a naming element's options"""
 
     name: StringProperty(
@@ -44,7 +44,7 @@ class NamingElementItem(bpy.types.PropertyGroup, ModifiedPropMixin):
     )
 
 
-class NamingElement(bpy.types.PropertyGroup, ModifiedPropMixin):
+class NamingElementProperty(bpy.types.PropertyGroup, ModifiedPropMixin):
     """Definition of a naming element"""
 
     id: StringProperty(
@@ -92,7 +92,7 @@ class NamingElement(bpy.types.PropertyGroup, ModifiedPropMixin):
 
     # For text elements - predefined options
     items: CollectionProperty(
-        type=NamingElementItem,
+        type=NamingElementItemProperty,
         name="Items",
         description="Predefined text options for this element",
     )
@@ -102,7 +102,7 @@ class NamingElement(bpy.types.PropertyGroup, ModifiedPropMixin):
         name="Active Item Index", default=0, update=modified_updater()
     )
 
-    def get_item_by_idx(self, idx: int) -> Optional[NamingElementItem]:
+    def get_item_by_idx(self, idx: int) -> Optional[NamingElementItemProperty]:
         if not self.items:
             return None
         return self.items[idx]
@@ -172,7 +172,7 @@ class NamingElement(bpy.types.PropertyGroup, ModifiedPropMixin):
     )
 
 
-class NamingPattern(bpy.types.PropertyGroup, ModifiedPropMixin):
+class NamingPatternProperty(bpy.types.PropertyGroup, ModifiedPropMixin):
     """A complete naming pattern for a specific object type"""
 
     id: StringProperty(
@@ -187,7 +187,7 @@ class NamingPattern(bpy.types.PropertyGroup, ModifiedPropMixin):
     )
 
     elements: CollectionProperty(
-        type=NamingElement,
+        type=NamingElementProperty,
         name="Elements",
         description="Elements that make up this naming pattern",
     )
@@ -200,7 +200,7 @@ class NamingPattern(bpy.types.PropertyGroup, ModifiedPropMixin):
 
     active_element_index: IntProperty(name="Active Element Index", default=0)
 
-    def get_element_by_id(self, id: str) -> Optional[NamingElement]:
+    def get_element_by_id(self, id: str) -> Optional[NamingElementProperty]:
         if not self.elements:
             return None
         for elem in self.elements:
