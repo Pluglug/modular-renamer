@@ -1,0 +1,351 @@
+---
+config:
+  theme: mc
+
+---
+
+classDiagram
+    direction LR
+    
+    %% コアシステム
+    namespace core {
+        class RenameSystem {
+            -_collectors: CollectionSubsystem
+            -_targets: TargetSystem
+            -_namespaces: NamespaceSystem
+            -_patterns: PatternSystem
+            -_type_system: BlenderTypeSystem
+            +initialize(context: Context) void
+            +collect_targets(context: Context, filter: Dict) List[RenameTarget]
+            +generate_names(targets: List[RenameTarget], pattern_id: str) NameProposal
+            +execute_rename(proposal: NameProposal) RenameResult
+        }
+        
+        class BlenderTypeSystem {
+            -_type_registry: Dict[str, BlenderTypeInfo]
+            +register_type(key: str, type_info: BlenderTypeInfo) void
+            +get_type_info(key: str) BlenderTypeInfo
+            +get_collector_strategy(key: str) CollectorStrategy
+            +get_namespace_strategy(key: str) NamespaceStrategy
+            +get_rename_strategy(key: str) RenameStrategy
+            +get_all_types() List[str]
+        }
+        
+        class BlenderTypeInfo {
+            <<dataclass>>
+            +key: str
+            +display_name: str
+            +icon: str
+            +collector_strategy: CollectorStrategy
+            +namespace_strategy: NamespaceStrategy
+            +rename_strategy: RenameStrategy
+        }
+    }
+    
+    %% コレクションサブシステム
+    namespace collection {
+        class CollectionSubsystem {
+            -_registry: CollectorRegistry
+            -_type_system: BlenderTypeSystem
+            +collect(context: Context, filter: Dict) List[DataEntity]
+            +register_collector(collector: ICollector)
+        }
+        
+        class CollectorRegistry {
+            -_collectors: Dict[str, ICollector]
+            +get_collector(type: str) ICollector
+            +get_all_collectors() List[ICollector]
+        }
+        
+        class ICollector {
+            <<interface>>
+            +get_type() str
+            +collect_entities(context: Context, filter: Dict) List[DataEntity]
+            +get_supported_filters() List[str]
+        }
+        
+        class CollectorStrategy {
+            <<interface>>
+            +collect_from_context(context: Context, filter: Dict) List[DataEntity]
+        }
+        
+        class OutlinerCollectorStrategy {
+            +collect_from_context(context: Context, filter: Dict) List[DataEntity]
+            -_get_outliner_elements(context: Context) List[Dict]
+            -_convert_to_entities(elements: List[Dict]) List[DataEntity]
+        }
+        
+        class ViewportCollectorStrategy {
+            +collect_from_context(context: Context, filter: Dict) List[DataEntity]
+        }
+        
+        class DataEntity {
+            <<dataclass>>
+            +type: str
+            +id: int
+            +data: Any
+            +parent: Optional[DataEntity]
+            +metadata: Dict
+        }
+    }
+    
+    %% ターゲットシステム
+    namespace target {
+        class TargetSystem {
+            -_factory: TargetFactory
+            -_type_system: BlenderTypeSystem
+            +create_targets(entities: List[DataEntity]) List[RenameTarget]
+            +get_target_type(entity: DataEntity) str
+        }
+        
+        class TargetFactory {
+            -_type_system: BlenderTypeSystem
+            +create_target(entity: DataEntity) RenameTarget
+        }
+        
+        class RenameTarget {
+            <<abstract>>
+            -_entity: DataEntity
+            -_type_system: BlenderTypeSystem
+            +get_name() str
+            +set_name(name: str) void
+            +get_type() str
+            +get_namespace_key() str
+            +get_data() Any
+            +equals(other: RenameTarget) bool
+            +hash() int
+        }
+        
+        class RenameStrategy {
+            <<interface>>
+            +get_name(entity: DataEntity) str
+            +set_name(entity: DataEntity, name: str) void
+        }
+        
+        class ObjectRenameStrategy {
+            +get_name(entity: DataEntity) str
+            +set_name(entity: DataEntity, name: str) void
+        }
+        
+        class ModifierRenameStrategy {
+            +get_name(entity: DataEntity) str
+            +set_name(entity: DataEntity, name: str) void
+        }
+    }
+    
+    %% ネームスペースシステム
+    namespace namespace_system {
+        class NamespaceSystem {
+            -_factory: NamespaceFactory
+            -_registry: NamespaceRegistry
+            -_type_system: BlenderTypeSystem
+            +get_namespace(key: str) Namespace
+            +initialize_namespaces(context: Context) void
+            +check_conflict(target: RenameTarget, name: str) bool
+        }
+        
+        class NamespaceFactory {
+            -_type_system: BlenderTypeSystem
+            +create_namespace(key: str) Namespace
+            +initialize_namespace(key: str, context: Context) void
+        }
+        
+        class NamespaceRegistry {
+            -_namespaces: Dict[str, Namespace]
+            +register(key: str, namespace: Namespace)
+            +get(key: str) Namespace
+            +contains(key: str) bool
+        }
+        
+        class Namespace {
+            -_names: Set[str]
+            -_simulated_names: Set[str]
+            +contains(name: str) bool
+            +add(name: str) void
+            +remove(name: str) void
+            +update(old: str, new: str) void
+            +simulate_update(old: str, new: str) void
+            +commit_simulated_changes() void
+            +discard_simulated_changes() void
+            +get_all_names() Set[str]
+        }
+        
+        class NamespaceStrategy {
+            <<interface>>
+            +initialize(context: Context) Set[str]
+            +get_key() str
+        }
+        
+        class ObjectNamespaceStrategy {
+            +initialize(context: Context) Set[str]
+            +get_key() str
+        }
+        
+        class ModifierNamespaceStrategy {
+            +initialize(context: Context, parent: Any) Set[str]
+            +get_key() str
+            +get_parent_key() str
+        }
+    }
+    
+    %% パターンシステム
+    namespace pattern {
+        class PatternSystem {
+            -_registry: PatternRegistry
+            +get_pattern(id: str) NamingPattern
+            +apply_pattern(pattern: NamingPattern, targets: List[RenameTarget]) NameProposal
+        }
+        
+        class PatternRegistry {
+            -_patterns: Dict[str, NamingPattern]
+            +register(pattern: NamingPattern)
+            +get(id: str) NamingPattern
+        }
+        
+        class NamingPattern {
+            -_elements: List[PatternElement]
+            +apply(target: RenameTarget) str
+            +increment_counter() void
+        }
+        
+        class PatternElement {
+            <<abstract>>
+            +render() str
+            +parse(name: str) bool
+        }
+        
+        class NameProposal {
+            +targets: List[RenameTarget]
+            +pattern: NamingPattern
+            +original_names: Dict[RenameTarget, str]
+            +proposed_names: Dict[RenameTarget, str]
+            +final_names: Dict[RenameTarget, str]
+            +has_conflicts: bool
+            +resolve_conflicts(strategy: str) void
+            +get_conflicting_targets() List[RenameTarget]
+            +update_proposed_name(target: RenameTarget, name: str) void
+        }
+    }
+    
+    %% リネーム実行システム
+    namespace execution {
+        class ConflictResolver {
+            -_namespace_system: NamespaceSystem
+            +resolve(proposal: NameProposal, strategy: str) void
+            -_resolve_with_counter(proposal: NameProposal) void
+            -_resolve_with_force(proposal: NameProposal) void
+            -_has_conflict(namespace: Namespace, name: str, target: RenameTarget) bool
+        }
+        
+        class RenameExecutor {
+            +execute(proposal: NameProposal) RenameResult
+            -_apply_names(proposal: NameProposal) void
+            -_update_namespaces(proposal: NameProposal) void
+        }
+        
+        class RenameResult {
+            +success: bool
+            +renamed_targets: List[RenameTarget]
+            +failed_targets: List[RenameTarget]
+            +errors: Dict[RenameTarget, str]
+            +summary() str
+        }
+    }
+    
+    %% イベントシステム
+    namespace events {
+        class EventSystem {
+            +subscribe(event_type: str, handler: Callable) void
+            +publish(event: RenameEvent) void
+        }
+        
+        class RenameEvent {
+            <<abstract>>
+            +timestamp: datetime
+            +source: Any
+        }
+        
+        class TargetsCollectedEvent {
+            +targets: List[RenameTarget]
+        }
+        
+        class RenameCompletedEvent {
+            +result: RenameResult
+        }
+    }
+    
+    %% ブレンダー型の具体的戦略
+    namespace blender_types {
+        class ObjectTypeInfo {
+            <<static>>
+            +KEY: str = "OBJECT"
+            +DISPLAY_NAME: str = "Object"
+            +ICON: str = "OBJECT_DATA"
+            +create() BlenderTypeInfo
+        }
+        
+        class ModifierTypeInfo {
+            <<static>>
+            +KEY: str = "MODIFIER"
+            +DISPLAY_NAME: str = "Modifier"
+            +ICON: str = "MODIFIER"
+            +create() BlenderTypeInfo
+        }
+    }
+    
+    %% 関連
+    RenameSystem *-- BlenderTypeSystem
+    RenameSystem *-- CollectionSubsystem
+    RenameSystem *-- TargetSystem
+    RenameSystem *-- NamespaceSystem
+    RenameSystem *-- PatternSystem
+    RenameSystem --> ConflictResolver : uses
+    RenameSystem --> RenameExecutor : uses
+    RenameSystem --> EventSystem : publishes to
+    
+    BlenderTypeSystem o-- BlenderTypeInfo
+    BlenderTypeInfo *-- CollectorStrategy
+    BlenderTypeInfo *-- NamespaceStrategy
+    BlenderTypeInfo *-- RenameStrategy
+    
+    CollectionSubsystem --> BlenderTypeSystem : uses
+    CollectionSubsystem *-- CollectorRegistry
+    CollectorRegistry o-- ICollector
+    ICollector <|.. OutlinerCollectorStrategy
+    ICollector <|.. ViewportCollectorStrategy
+    CollectorStrategy <|.. OutlinerCollectorStrategy
+    CollectorStrategy <|.. ViewportCollectorStrategy
+    OutlinerCollectorStrategy ..> DataEntity : produces
+    ViewportCollectorStrategy ..> DataEntity : produces
+    
+    TargetSystem --> BlenderTypeSystem : uses
+    TargetSystem *-- TargetFactory
+    TargetFactory --> BlenderTypeSystem : uses
+    TargetFactory ..> RenameTarget : creates
+    RenameTarget o-- DataEntity
+    RenameTarget --> BlenderTypeSystem : uses
+    
+    RenameStrategy <|.. ObjectRenameStrategy
+    RenameStrategy <|.. ModifierRenameStrategy
+    
+    NamespaceSystem --> BlenderTypeSystem : uses
+    NamespaceSystem *-- NamespaceFactory
+    NamespaceSystem *-- NamespaceRegistry
+    NamespaceFactory --> BlenderTypeSystem : uses
+    NamespaceRegistry o-- Namespace
+    
+    NamespaceStrategy <|.. ObjectNamespaceStrategy
+    NamespaceStrategy <|.. ModifierNamespaceStrategy
+    
+    PatternSystem *-- PatternRegistry
+    PatternRegistry o-- NamingPattern
+    NamingPattern o-- PatternElement
+    PatternSystem ..> NameProposal : creates
+    
+    ConflictResolver --> NamespaceSystem : uses
+    ConflictResolver --> NameProposal : uses
+    ConflictResolver ..> NamingPattern : accesses through NameProposal
+    RenameExecutor ..> RenameResult : produces
+    
+    ObjectTypeInfo ..> BlenderTypeInfo : creates
+    ModifierTypeInfo ..> BlenderTypeInfo : creates

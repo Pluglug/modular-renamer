@@ -1,13 +1,24 @@
-from typing import List, Optional
+from typing import List, Optional, Protocol
 
 from ..contracts.element import ElementConfig, INameElement
 from ..element.registry import ElementRegistry
 from ..pattern.model import NamingPattern
 from ...elements.counter_element import blender_counter_element_config
-from ...ui.property_groups import NamingElementProperty, NamingPatternProperty
+
+# from ...ui.props import NamingElementProperty, NamingPatternProperty
 from ...utils.logging import get_logger
 
 log = get_logger(__name__)
+
+
+class IPropertyGroup(Protocol):
+    """BlenderのPropertyGroupのインターフェース"""
+
+    id: str
+    element_type: str
+    order: int
+    enabled: bool
+    separator: str
 
 
 class PatternFactory:
@@ -18,7 +29,7 @@ class PatternFactory:
     def __init__(self, element_registry: ElementRegistry):
         self._element_registry = element_registry
 
-    def create_pattern(self, pattern_data: NamingPatternProperty) -> NamingPattern:
+    def create_pattern(self, pattern_data: "NamingPatternProperty") -> NamingPattern:
         """
         パターンを生成して返す
 
@@ -33,7 +44,7 @@ class PatternFactory:
         return pattern
 
     def _create_elements(
-        self, pattern_data: NamingPatternProperty
+        self, pattern_data: "NamingPatternProperty"
     ) -> List[INameElement]:
         """要素を作成"""
         elements_config = self._create_elements_config(pattern_data)
@@ -59,7 +70,7 @@ class PatternFactory:
         return elements
 
     def _create_elements_config(
-        self, pattern_data: NamingPatternProperty
+        self, pattern_data: "NamingPatternProperty"
     ) -> List[ElementConfig]:
         """要素の設定を作成"""
         pattern_elements = pattern_data.elements
@@ -72,7 +83,7 @@ class PatternFactory:
         return elements_config
 
     def _convert_to_element_config(
-        self, element_data: NamingElementProperty
+        self, element_data: IPropertyGroup
     ) -> Optional[ElementConfig]:
         """BlenderPropertyをElementConfigに変換"""
         element_type = element_data.element_type

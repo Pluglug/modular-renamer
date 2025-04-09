@@ -8,7 +8,8 @@ from ..element.registry import ElementRegistry
 from ..pattern.cache import PatternCache
 from ..pattern.factory import PatternFactory
 from ..pattern.model import NamingPattern
-from ...ui.property_groups import NamingPatternProperty
+
+# from ...ui.props import NamingPatternProperty
 from ...utils.logging import get_logger
 
 log = get_logger(__name__)
@@ -56,13 +57,13 @@ class PatternFacade:
         except KeyError:
             return None
 
-    def create_pattern(self, pattern_data: NamingPatternProperty) -> NamingPattern:
+    def create_pattern(self, pattern_data: "NamingPatternProperty") -> NamingPattern:
         """パターンを作成"""
         new_pattern = self._pattern_factory.create_pattern(pattern_data)
         self._pattern_cache[pattern_data.id] = new_pattern
         return new_pattern
 
-    def update_pattern(self, pattern_data: NamingPatternProperty) -> None:
+    def update_pattern(self, pattern_data: "NamingPatternProperty") -> None:
         """
         パターンを更新
 
@@ -133,7 +134,7 @@ class PatternFacade:
                 del self._pattern_cache[pattern_id]
 
     def _should_update_pattern(
-        self, pattern: NamingPatternProperty, cached_ids: set
+        self, pattern: "NamingPatternProperty", cached_ids: set
     ) -> bool:
         """パターンの更新が必要かどうかを判定"""
         is_new = pattern.id not in cached_ids
