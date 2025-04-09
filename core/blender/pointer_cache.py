@@ -1,6 +1,8 @@
-from typing import Any, Dict, Optional, Set, Type
+from typing import Any, Dict, Optional, Set, Type, Union
 
 import bpy
+
+from ..constants import get_sequence_type
 
 bl_ver = bpy.app.version
 
@@ -8,7 +10,6 @@ BPY_TYPES_GPENCIL = [
     bpy.types.GreasePencil if bl_ver < (4, 4, 0) else bpy.types.GreasePencilv3,
     "grease_pencils" if bl_ver < (4, 4, 0) else "grease_pencil_v3",
 ]
-
 
 BLENDER_DATA_COLLECTIONS: Dict[Type, str] = {
     bpy.types.Action: "actions",
@@ -46,7 +47,7 @@ BLENDER_DATA_COLLECTIONS: Dict[Type, str] = {
     bpy.types.World: "worlds",
     bpy.types.WorkSpace: "workspaces",
     # bpy.types.FileSelectEntry: "files",
-    # bpy.types.Sequence if bpy.app.version < (4, 4, 0) else bpy.types.Strip: "sequences",
+    get_sequence_type(): "sequences",
     # bpy.types.Node: "nodes",
     bpy.types.Volume: "volumes",
     bpy.types.Screen: "screens",

@@ -1,8 +1,9 @@
 from typing import Any, Dict, List, Optional, Type
 
-from bpy.types import Context, EditBone, FileSelectEntry, Node, Object, PoseBone, Strip
+from bpy.types import Context, EditBone, FileSelectEntry, Node, Object, PoseBone
 
 from ..blender.outliner_access import OutlinerElementInfo
+from ..constants import SequenceType
 from ..contracts.target import IRenameTarget
 from ..target.scope import CollectionSource, OperationScope
 
@@ -205,7 +206,7 @@ class RenameTargetRegistry:
                 return self._target_classes_by_bl_type.get("NODE")
 
         elif scope.mode == CollectionSource.SEQUENCE_EDITOR:
-            if isinstance(item, Strip):
+            if isinstance(item, SequenceType):
                 return self._target_classes_by_bl_type.get("STRIP")
 
         elif scope.mode == CollectionSource.FILE_BROWSER:

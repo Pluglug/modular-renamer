@@ -8,6 +8,7 @@ from ..blender.outliner_access import (
     get_selected_outliner_elements,
 )
 from ..blender.pointer_cache import PointerCache
+from ..constants import get_selected_sequences, BlenderTypeProvider
 from ..contracts.target import IRenameTarget
 from ..target.registry import RenameTargetRegistry
 from ..target.scope import CollectionSource, OperationScope
@@ -96,10 +97,7 @@ class TargetCollector:
 
         if ctx_dict := self._get_override_dict_for_area_type("SEQUENCE_EDITOR"):
             with self.context.temp_override(**ctx_dict):
-                if bpy.app.version < (4, 4, 0):  # TODO: バージョンチェックを移行
-                    return self.context.selected_sequences or []
-                else:
-                    return self.context.selected_strips or []
+                return get_selected_sequences(self.context)
         return []
 
     def _get_selected_from_file_browser(self) -> List[Any]:
