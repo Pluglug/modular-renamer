@@ -3,6 +3,7 @@ from typing import Dict, List, Optional, Type
 
 from ...utils.logging import get_logger
 from ..contracts.element import ElementConfig, INameElement
+from ..contracts.counter import ICounter
 
 log = get_logger(__name__)
 
@@ -59,6 +60,8 @@ class ElementRegistry:
         #         except TypeError as e:
         #             log.warning(f"要素タイプの登録に失敗: {e}")
 
+        self._element_types.clear()
+
         from ...elements import counter_element, position_element, text_element
 
         self.register_element_type(
@@ -91,9 +94,12 @@ class ElementRegistry:
             TypeError: クラスがINameElementを実装していない場合
             ValueError: 既に登録済みの型名の場合
         """
-        if not issubclass(element_class, INameElement):
+        if not (
+            issubclass(element_class, INameElement)
+            or isinstance(element_class, ICounter)
+        ):
             raise TypeError(
-                f"要素クラスはINameElementインターフェースを実装する必要があります: {element_class.__name__}"
+                f"要素クラスはINameElementインターフェースを実装する必要があります: {element_class.__name__} {element_class.__bases__}"
             )
 
         if type_name in self._element_types:

@@ -11,7 +11,7 @@ log = logging.get_logger(__name__)
 class NumericCounter(BaseCounter):
     """Simple numeric counter with configurable digits"""
 
-    element_type = "numeric_counter"  # BaseElementを継承していないため
+    element_type = "numeric_counter"  # INameElementインターフェースの要件を満たすため
 
     def __init__(self, element_config):
         super().__init__(element_config)
