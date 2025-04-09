@@ -18,10 +18,18 @@ SEPARATOR_ITEMS = [
 ]
 
 ELEMENT_TYPE_ITEMS = [
-    ("text", "Text", "Normal text with predefined options"),
+    ("text", "Text", "Normal text with predefined options"),  # SORTALPHA SMALL_CAPS
     # ("free_text", "Free Text", "Any text input"),  # 未実装
-    ("position", "Position", "Positional indicators (L/R, Top/Bot, etc)"),
-    ("numeric_counter", "Numeric Counter", "Numerical counter with formatting options"),
+    (
+        "position",
+        "Position",
+        "Positional indicators (L/R, Top/Bot, etc)",
+    ),  # EMPTY_ARROWS
+    (
+        "numeric_counter",
+        "Numeric Counter",
+        "Numerical counter with formatting options",
+    ),  # BLANK1 SNAP_VERTEX ONIONSKIN_ON
     # (
     #     "alphabetic_counter",
     #     "Alphabetic Counter",

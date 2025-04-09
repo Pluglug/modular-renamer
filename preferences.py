@@ -14,6 +14,7 @@ from bpy.props import (
     PointerProperty,
     StringProperty,
 )
+from bpy.app.translations import contexts as i18n_contexts
 
 from .addon import ADDON_ID, prefs
 from .core.constants import ELEMENT_TYPE_ITEMS, POSITION_ENUM_ITEMS, SEPARATOR_ITEMS
@@ -94,6 +95,7 @@ class NamingElementProperty(bpy.types.PropertyGroup, ModifiedPropMixin):
         description="Character used to separate this element from the next",
         items=SEPARATOR_ITEMS,
         default="_",
+        translation_context=i18n_contexts.operator_default,
         update=modified_updater(),
     )
 
@@ -583,9 +585,9 @@ class ModularRenamerPreferences(AddonPreferences):
             position.xaxis_enabled = True
             position.yaxis_enabled = False
             position.yaxis_enabled = False
-        # Z軸の設定（デフォルトで無効だが、設定可能にする）
+            # Z軸の設定（デフォルトで無効だが、設定可能にする）
             position.yaxis_enabled = False
-        # Z軸の設定（デフォルトで無効だが、設定可能にする）
+            # Z軸の設定（デフォルトで無効だが、設定可能にする）
             position.zaxis_enabled = False
 
             log.info("Default patterns created successfully.")

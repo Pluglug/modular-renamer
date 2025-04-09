@@ -168,6 +168,17 @@ class MODRENAMER_OT_PatternPreview(bpy.types.Operator):
         return {"FINISHED"}
 
 
+# カスタムUI リストclass - Pattern 用
+class MODRENAMER_UL_PatternList(bpy.types.UIList):
+    """パターンを表示するためのカスタム UI リスト"""
+
+    def draw_item(
+        self, context, layout, data, item, icon, active_data, active_propname, index
+    ):
+        text = f"* {item.name}" if item.modified else item.name
+        layout.label(text=text, translate=False)
+
+
 class MODRENAMER_UL_ElementsList(bpy.types.UIList):
     """要素を表示するためのカスタム UI リスト"""
 
@@ -186,14 +197,14 @@ class MODRENAMER_UL_ElementsList(bpy.types.UIList):
             else:
                 text = f"Element {index}"
 
-            row.label(text=text)
+            row.label(text=text, translate=False)
 
             # タイプ表示
-            row.label(text=f"({item.element_type})")
+            row.label(text=f"({item.element_type})", translate=False)
 
         elif self.layout_type in {"GRID"}:
             layout.alignment = "CENTER"
-            layout.label(text="", icon_value=icon)
+            layout.label(text="", icon_value=icon, translate=False)
 
 
 # カスタム UI リストクラス - Text Items 用
@@ -205,11 +216,11 @@ class MODRENAMER_UL_TextItemsList(bpy.types.UIList):
     ):
         # data は NamingElement、item は NamingElementItem
         if self.layout_type in {"DEFAULT", "COMPACT"}:
-            layout.label(text=item.name)
+            layout.label(text=item.name, translate=False)
 
         elif self.layout_type in {"GRID"}:
             layout.alignment = "CENTER"
-            layout.label(text="", icon_value=icon)
+            layout.label(text="", translate=False, icon_value=icon)
 
 
 class MODRENAMER_PT_MainPanel(bpy.types.Panel):
@@ -227,12 +238,14 @@ class MODRENAMER_PT_MainPanel(bpy.types.Panel):
 
         row = layout.row()
         row.operator("wm.save_userpref", text="Save User Prefs")
+
+        row = layout.row()
         row.label(text="Pattern:")
 
         if pr.patterns:
             row = layout.row()
             row.template_list(
-                "UI_UL_list",
+                "MODRENAMER_UL_PatternList",
                 "pattern_list",
                 pr,
                 "patterns",
@@ -325,17 +338,19 @@ class MODRENAMER_PT_MainPanel(bpy.types.Panel):
             # Element properties
             ele_box = box.box()
             row = ele_box.row()
-            row.prop(element, "display_name", text="Name")
-            row.prop(element, "enabled", text="")
+            row.label(text=f"ID: {element.id} (DEBUG)", translate=False)  # DEBUG
+            row = ele_box.row()  # DEBUG
+            row.prop(element, "display_name", text="Name", translate=False)
+            row.prop(element, "enabled", text="", translate=False)
 
             # Element type (read-only in edit mode)
             row = ele_box.row()
-            row.label(text=f"Type: {element.element_type}")
+            row.label(text=f"Type: {element.element_type}", translate=False)
 
             # Separator (disabled for first element)
             row = ele_box.row()
             row.enabled = element.order > 0
-            row.prop(element, "separator", text="Separator")
+            row.prop(element, "separator", text="Separator", translate=False)
 
             # Element-specific properties
             self.draw_element_properties(ele_box, element, pattern.active_element_index)
@@ -409,28 +424,28 @@ class MODRENAMER_PT_MainPanel(bpy.types.Panel):
         # X軸の設定
         box = layout.box()
         row = box.row()
-        row.prop(element, "xaxis_enabled", text="X Axis")
+        row.prop(element, "xaxis_enabled", text="X Axis", translate=False)
 
         if element.xaxis_enabled:
             row = box.row()
             row.label(text="X Axis Type:")
             row = box.row()
-            row.prop(element, "xaxis_type", text="")
+            row.prop(element, "xaxis_type", text="", translate=False)
 
         # Y軸の設定
         box = layout.box()
         row = box.row()
-        row.prop(element, "yaxis_enabled", text="Y Axis (Top/Bot)")
+        row.prop(element, "yaxis_enabled", text="Y Axis (Top/Bot)", translate=False)
 
         # Z軸の設定
         box = layout.box()
         row = box.row()
-        row.prop(element, "zaxis_enabled", text="Z Axis (Fr/Bk)")
+        row.prop(element, "zaxis_enabled", text="Z Axis (Fr/Bk)", translate=False)
 
     def draw_counter_element_properties(self, layout, element):
         """Draw properties for counter elements in edit mode"""
         row = layout.row()
-        row.prop(element, "padding", text="Padding")
+        row.prop(element, "padding", text="Padding", translate=False)
 
     # def draw_free_text_element_properties(self, layout, element):
     #     """Draw properties for free text elements in edit mode"""
