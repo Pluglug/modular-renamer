@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, List
 
 from bpy.types import Context
 
@@ -49,12 +49,12 @@ class RenameService:
     def generate_rename_plan(
         self,
         updates: Dict[str, str],
-    ):  # TODO: R-CTX or List[RenameResult]
+    ) -> RenameContext:
         """
         要素の更新を適用する
         """
 
-        counter_elements = []
+        counter_elements: List[ICounter] = []
         for element_id in updates.keys():
             try:
                 element = self.r_ctx.pattern.get_element_by_id(element_id)
@@ -66,17 +66,6 @@ class RenameService:
         for idx, target in enumerate(self.r_ctx.targets):
             # ターゲットの名前を解析
             self.r_ctx.pattern.parse_name(target.get_name())
-
-            # # XXX: カウンター要素の値を更新
-            # for counter in counter_elements:
-            #     if isinstance(counter, BlenderCounter):
-            #         # BlenderCounterの値を優先的に使用
-            #         if counter.value is not None:
-            #             counter_value = int(counter.value.lstrip('.'))
-            #             counter.set_value(str(counter_value))
-            #     else:
-            #         # その他のカウンターはインデックスを使用
-            #         counter.set_value(str(idx + 1))
 
             # その他の要素を更新
             self.r_ctx.pattern.update_elements(updates)

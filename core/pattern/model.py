@@ -71,7 +71,7 @@ class NamingPattern:
         )
         numeric_counter = next(
             e for e in self.elements if isinstance(e, NumericCounter)
-        )
+        )  # FIXME: StopIteration: カウンター要素が無い場合(できれば必ず存在するようにしたい)
         if blender_counter.value:
             numeric_counter.take_over_counter(blender_counter)
 
