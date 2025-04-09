@@ -19,7 +19,7 @@ from .addon import ADDON_ID, prefs
 from .core.constants import ELEMENT_TYPE_ITEMS, POSITION_ENUM_ITEMS, SEPARATOR_ITEMS
 from .core.pattern.facade import PatternFacade
 # from .ui.props import NamingPatternProperty
-from .utils.logging import get_logger
+from .utils.logging import get_logger, LoggerPreferences
 
 log = get_logger(__name__)
 
@@ -305,6 +305,8 @@ class ModularRenamerPreferences(AddonPreferences):
     """Addon preferences for ModularRenamer"""
 
     bl_idname = ADDON_ID
+
+    logger_prefs: PointerProperty(type=LoggerPreferences)
 
     # Whether the pattern is in edit mode
     edit_mode: BoolProperty(
@@ -594,10 +596,9 @@ class ModularRenamerPreferences(AddonPreferences):
             # 必要であれば、ここでロールバック処理を追加する
             return False  # 作成失敗
 
-    # def draw(self, context):
-    #     layout = self.layout
-    #     self.draw_logger_preferences(layout) # AddonLoggerPreferencesMixin からのメソッド
-
+    def draw(self, context):
+        layout = self.layout
+        LoggerPreferences.draw(self, layout)
 
 
 def register():
