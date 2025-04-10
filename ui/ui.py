@@ -216,11 +216,12 @@ class MODRENAMER_UL_TextItemsList(bpy.types.UIList):
     ):
         # data は NamingElement、item は NamingElementItem
         if self.layout_type in {"DEFAULT", "COMPACT"}:
-            layout.label(text=item.name, translate=False)
+            # layout.label(text=item.name, translate=False)
+            layout.prop(item, "name", text="", emboss=False, placeholder="Enter any word")
 
         elif self.layout_type in {"GRID"}:
             layout.alignment = "CENTER"
-            layout.label(text="", translate=False, icon_value=icon)
+            layout.prop(item, "name", text="", emboss=False, placeholder="Enter any word")
 
 
 class MODRENAMER_PT_MainPanel(bpy.types.Panel):
@@ -417,7 +418,7 @@ class MODRENAMER_PT_MainPanel(bpy.types.Panel):
         if element.active_item_index < len(element.items):
             item = element.items[element.active_item_index]
             row = layout.row()
-            row.prop(item, "name", text="Item")
+            row.prop(item, "name", text="Item", placeholder="Enter any word")
 
     def draw_position_element_properties(self, layout, element):
         """Draw properties for position elements in edit mode"""
@@ -470,7 +471,7 @@ class MODRENAMER_PT_MainPanel(bpy.types.Panel):
 
             box = layout.box()
             row = box.row()
-            row.label(text=element.display_name)
+            row.label(text=element.display_name, translate=False)
 
             if element.element_type == "text":
                 self.draw_text_element(box, element)
@@ -489,9 +490,9 @@ class MODRENAMER_PT_MainPanel(bpy.types.Panel):
 
     def draw_text_element(self, layout, element):
         """Draw UI for a text element in normal mode"""
-        flow = layout.column_flow(columns=3)
+        flow = layout.column_flow(columns=3)  # TODO: 3列ではなく、要素数や画面幅に応じて可変にする
         for idx, item in enumerate(element.items):
-            op = flow.operator("modrenamer.rename", text=item.name)
+            op = flow.operator("modrenamer.rename", text=item.name, translate=False)
             op.operation_type = RenameOperationType.ADD_REPLACE
             op.target_element = element.id
             op.index = idx
@@ -514,14 +515,14 @@ class MODRENAMER_PT_MainPanel(bpy.types.Panel):
                 row = layout.row(align=True)
 
                 # Left position
-                op = row.operator("modrenamer.rename", text=left)
+                op = row.operator("modrenamer.rename", text=left, translate=False)
                 op.operation_type = RenameOperationType.ADD_REPLACE
                 op.target_element = element.id
                 op.index = current_index
                 current_index += 1
 
                 # Right position
-                op = row.operator("modrenamer.rename", text=right)
+                op = row.operator("modrenamer.rename", text=right, translate=False)
                 op.operation_type = RenameOperationType.ADD_REPLACE
                 op.target_element = element.id
                 op.index = current_index
@@ -536,14 +537,14 @@ class MODRENAMER_PT_MainPanel(bpy.types.Panel):
                 row = layout.row(align=True)
 
                 # Top position
-                op = row.operator("modrenamer.rename", text=top)
+                op = row.operator("modrenamer.rename", text=top, translate=False)
                 op.operation_type = RenameOperationType.ADD_REPLACE
                 op.target_element = element.id
                 op.index = current_index
                 current_index += 1
 
                 # Bottom position
-                op = row.operator("modrenamer.rename", text=bot)
+                op = row.operator("modrenamer.rename", text=bot, translate=False)
                 op.operation_type = RenameOperationType.ADD_REPLACE
                 op.target_element = element.id
                 op.index = current_index
@@ -558,14 +559,14 @@ class MODRENAMER_PT_MainPanel(bpy.types.Panel):
                 row = layout.row(align=True)
 
                 # Front position
-                op = row.operator("modrenamer.rename", text=front)
+                op = row.operator("modrenamer.rename", text=front, translate=False)
                 op.operation_type = RenameOperationType.ADD_REPLACE
                 op.target_element = element.id
                 op.index = current_index
                 current_index += 1
 
                 # Back position
-                op = row.operator("modrenamer.rename", text=back)
+                op = row.operator("modrenamer.rename", text=back, translate=False)
                 op.operation_type = RenameOperationType.ADD_REPLACE
                 op.target_element = element.id
                 op.index = current_index
@@ -582,7 +583,7 @@ class MODRENAMER_PT_MainPanel(bpy.types.Panel):
         """Draw UI for a counter element in normal mode"""
         flow = layout.column_flow(columns=5)
         for i in range(1, 11):
-            op = flow.operator("modrenamer.rename", text=f"{i:0{element.padding}d}")
+            op = flow.operator("modrenamer.rename", text=f"{i:0{element.padding}d}", translate=False)
             op.operation_type = RenameOperationType.ADD_REPLACE
             op.target_element = element.id
             op.index = i
@@ -736,6 +737,7 @@ class MODRENAMER_OT_AddElement(bpy.types.Operator):
         # Generate a unique ID
         element_id = f"{self.element_type}_{len(pattern.elements) + 1}"
 
+        # TODO: 現在のidxの直後に追加する
         # Add the new element
         element = pattern.add_element(element_id, self.element_type, self.display_name)
 
@@ -750,6 +752,8 @@ class MODRENAMER_OT_RemoveElement(bpy.types.Operator):
 
     bl_idname = "modrenamer.remove_element"
     bl_label = "Remove Element"
+
+    # TODO: 削除してよいか確認Popupを表示する
 
     def execute(self, context):
         pr = prefs()
@@ -835,12 +839,13 @@ class MODRENAMER_OT_AddTextItem(bpy.types.Operator):
     bl_idname = "modrenamer.add_text_item"
     bl_label = "Add Text Item"
 
-    element_index: IntProperty(name="Element Index", default=0)
+    element_index: IntProperty(name="Element Index", default=0, options={"SKIP_SAVE"})
 
-    item_name: StringProperty(name="Item Name", default="New Item")
+    item_name: StringProperty(name="Item Name", default="", options={"SKIP_SAVE"})
 
     def invoke(self, context, event):
-        return context.window_manager.invoke_props_dialog(self)
+        # return context.window_manager.invoke_props_dialog(self)
+        return self.execute(context)
 
     def draw(self, context):
         layout = self.layout
@@ -861,6 +866,7 @@ class MODRENAMER_OT_AddTextItem(bpy.types.Operator):
         element = pattern.elements[self.element_index]
 
         # Add the new item
+        # TODO: 現在のidxの直後に追加する
         item = element.items.add()
         item.name = self.item_name
 

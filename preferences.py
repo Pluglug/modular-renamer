@@ -30,10 +30,13 @@ log = get_logger(__name__)
 class ModifiedPropMixin:
     def _update_modified(self):
         """自分と親のmodifiedフラグをTrueに"""
+        log.debug(f"Updating modified for {self}")  # 呼ばれてる でもnameはない
         if hasattr(self, "modified"):
+            log.debug(f"self.modified: {self.modified}")
             self.modified = True
         parent = getattr(self, "id_data", None)
         if parent and hasattr(parent, "_update_modified"):
+            log.debug(f"parent: {parent}")  # FIXME: 呼ばれて無さそう
             parent._update_modified()
 
 
