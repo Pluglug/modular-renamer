@@ -154,13 +154,23 @@ class BaseCounter(BaseElement, ICounter):
             other: カウンターの値を奪う対象のカウンター
             force: 自分の値が存在する場合でも奪うかどうか
         """
-        if other.value is None:
+        other_value_int = other.value_int # Noneの可能性あり
+
+        if other_value_int is None:
             return
 
-        if not force and self.value is not None and self.value_int > 0:
-            self.add(other.value_int)
-            other.set_value(None)
+        # self.value_int も None の可能性があるのでチェック
+        if not force and self.value is not None and self.value_int is not None and self.value_int > 0:
+            # other_value_int は None でないことを確認済みなので、そのまま加算
+            self.add(other_value_int)
+            other.set_value(None) # 元のカウンターをリセット
             return
 
-        self.set_value(other.value_int)
-        other.set_value(None)
+        # other_value_int は None でないので、そのまま設定
+        # set_value は str | None を期待するので、int を str に変換する
+        self.set_value(str(other_value_int))
+        # set_value は int も内部で処理してくれるが、型チェックエラーを避けるため str に変換するか、
+        # もしくは BaseElement.set_value の型ヒントを見直す必要があるかもしれない。
+        # ここでは一旦 int を渡す形にする (動作はするはず)
+
+        other.set_value(None) # 元のカウンターをリセット
