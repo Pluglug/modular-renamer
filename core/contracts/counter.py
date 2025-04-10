@@ -93,7 +93,7 @@ class BaseCounter(BaseElement, ICounter):
         elif isinstance(new_value, str):
             try:
                 # まずBaseElementの_valueを更新
-                self._value = new_value
+                self._value = new_value  # self.format_value(int(new_value))
                 # 文字列を整数に変換
                 value_int = self._parse_value(new_value)
                 # _value_intも更新（_valueは既に設定済みなので上書きしない）
@@ -109,6 +109,9 @@ class BaseCounter(BaseElement, ICounter):
 
     def add(self, value: int) -> None:
         """Add a value to the counter"""
+        if value == 0:
+            return
+
         if self._value_int is None:
             self.value_int = value
         else:
@@ -120,6 +123,14 @@ class BaseCounter(BaseElement, ICounter):
             self.value_int = 1
         else:
             self.value_int = self._value_int + 1
+
+    def standby(self) -> None:
+        """カウンターの状態をリセットする"""
+        super().standby()
+        self._value_int = None
+        self.forward = None
+        self.backward = None
+        print(f"counter standby: {self._value_int}")
 
     def parse(self, name: str) -> bool:
         """Parse counter value from name string"""
