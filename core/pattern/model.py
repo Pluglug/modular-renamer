@@ -91,7 +91,7 @@ class NamingPattern:
             new_elements: 要素IDを新しい値にマッピングする辞書 {要素ID: 新しい値}
         """
         if new_elements is None:
-            return
+            return self
 
         has_updated = False
         for element in self.elements:
