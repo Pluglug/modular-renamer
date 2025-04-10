@@ -300,7 +300,7 @@ def update_edit_mode(self, context):
             pf.synchronize_patterns()
 
         except Exception as e:
-            log.error(f"パターンの同期中にエラーが発生しました: {e}", exc_info=True)
+            log.error(f"パターンの同期中にエラーが発生しました: {e}")
 
 
 class ModularRenamerPreferences(AddonPreferences):
@@ -405,7 +405,7 @@ class ModularRenamerPreferences(AddonPreferences):
             log.info(f"Patterns exported to {filepath}")
             return True
         except Exception as e:
-            log.error(f"Error exporting patterns: {e}", exc_info=True)
+            log.error(f"Error exporting patterns: {e}")
             return False
 
     # Import patterns from JSON
@@ -493,7 +493,7 @@ class ModularRenamerPreferences(AddonPreferences):
             log.error(f"Error decoding JSON from file: {filepath}")
             return False
         except Exception as e:
-            log.error(f"Error importing patterns: {e}", exc_info=True)
+            log.error(f"Error importing patterns: {e}")
             # インポート失敗時も部分的に読み込まれたパターンは残る可能性がある
             return False
 
@@ -593,14 +593,14 @@ class ModularRenamerPreferences(AddonPreferences):
             log.info("Default patterns created successfully.")
             return True  # 作成成功
         except Exception as e:
-            log.error(f"Error creating default patterns: {e}", exc_info=True)
+            log.error(f"Error creating default patterns: {e}")
             # 作成中にエラーが発生した場合、部分的に作成されたパターンが残る可能性がある
             # 必要であれば、ここでロールバック処理を追加する
             return False  # 作成失敗
 
     def draw(self, context):
         layout = self.layout
-        LoggerPreferences.draw(self, layout)
+        LoggerPreferences.draw(self.logger_prefs, layout)
 
 
 def register():

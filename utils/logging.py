@@ -284,8 +284,9 @@ class ModuleLoggerSettings(PropertyGroup):
 class LoggerPreferences(PropertyGroup):
     """ロガー設定プロパティグループ"""
 
-    def update_logger_settings(self, context=None):
+    def update_logger_settings(self, context):
         """ロガー設定を更新"""
+        print("update_logger_settings")
         if not self.log_enable:
             return
 
@@ -369,35 +370,35 @@ class LoggerPreferences(PropertyGroup):
         box = layout.box()
         box.label(text="Logging Settings", icon="CONSOLE")
         row = box.row()
-        row.prop(self.logger_prefs, "log_enable")
+        row.prop(self, "log_enable")
 
-        if not self.logger_prefs.log_enable:
+        if not self.log_enable:
             return
 
         row = box.row()
-        row.prop(self.logger_prefs, "log_to_console")
+        row.prop(self, "log_to_console")
 
         row = box.row()
-        row.prop(self.logger_prefs, "log_to_file")
-        if self.logger_prefs.log_to_file:
+        row.prop(self, "log_to_file")
+        if self.log_to_file:
             row = box.row()
-            row.prop(self.logger_prefs, "log_file_path")
+            row.prop(self, "log_file_path")
 
         row = box.row()
-        row.prop(self.logger_prefs, "memory_capacity")
+        row.prop(self, "memory_capacity")
 
         row.separator()
 
         # モジュール設定セクション
-        if len(self.logger_prefs.modules) > 0:
+        if len(self.modules) > 0:
             box.label(text="Module Settings")
             row = box.row()
             row.template_list(
                 "LOGGER_UL_modules",
                 "",
-                self.logger_prefs,
+                self,
                 "modules",
-                self.logger_prefs,
+                self,
                 "active_module_index",
             )
 
