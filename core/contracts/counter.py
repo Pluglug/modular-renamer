@@ -93,7 +93,7 @@ class BaseCounter(BaseElement, ICounter):
         elif isinstance(new_value, str):
             try:
                 # まずBaseElementの_valueを更新
-                self._value = new_value  # self.format_value(int(new_value))
+                self._value = new_value
                 # 文字列を整数に変換
                 value_int = self._parse_value(new_value)
                 # _value_intも更新（_valueは既に設定済みなので上書きしない）
@@ -173,13 +173,13 @@ class BaseCounter(BaseElement, ICounter):
         # self.value_int も None の可能性があるのでチェック
         if not force and self.value is not None and self.value_int is not None and self.value_int > 0:
             # other_value_int は None でないことを確認済みなので、そのまま加算
-            self.add(other_value_int)
+            # self.add(other_value_int)  # これは不要 ConflictResolver で加算できる
             other.set_value(None) # 元のカウンターをリセット
             return
 
         # other_value_int は None でないので、そのまま設定
         # set_value は str | None を期待するので、int を str に変換する
-        self.set_value(str(other_value_int))
+        self.set_value(self.format_value(other_value_int))
         # set_value は int も内部で処理してくれるが、型チェックエラーを避けるため str に変換するか、
         # もしくは BaseElement.set_value の型ヒントを見直す必要があるかもしれない。
         # ここでは一旦 int を渡す形にする (動作はするはず)
