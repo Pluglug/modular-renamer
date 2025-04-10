@@ -125,12 +125,15 @@ class NamingPattern:
             レンダリングされた名前
         """
         # 有効で値を持つ要素のrender結果を収集
-        # 各要素のrender()は(separator, value)のタプルを返す。
-        elements_parts = [
-            element.render()
-            for element in self.elements
-            if element.enabled and element.value
-        ]
+        elements_parts = []
+        for element in self.elements:
+            if element.enabled and element.value is not None:
+                rendered = element.render()
+                if rendered:
+                    elements_parts.append(rendered)
+
+        if not elements_parts:
+            return ""
 
         # セパレータと値を結合して名前を生成
         name_parts = []
