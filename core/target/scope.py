@@ -5,6 +5,10 @@ from typing import Dict, List, Set
 import bpy
 from bpy.types import Context
 
+from ...utils.logging import get_logger
+
+log = get_logger(__name__)
+
 
 class CollectionSource(str, Enum):
     """データ収集元"""
@@ -35,7 +39,7 @@ class OperationScope:
             collection_source_mode = CollectionSource[mode_str]
         except KeyError:
             # EnumProperty の定義と Scene の値が不一致の場合などのフォールバック
-            print(
+            log.warning(
                 f"警告: 無効なモード文字列 '{mode_str}' が検出されました。デフォルトの VIEW3D を使用します。"
             )
             collection_source_mode = CollectionSource.VIEW3D

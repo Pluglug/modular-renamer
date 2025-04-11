@@ -3,6 +3,10 @@ from typing import Any, Dict, List, Optional, Set, Type, Union
 import bpy
 from bpy.types import Context
 
+from ..utils.logging import get_logger
+
+log = get_logger(__name__)
+
 # RENAMABLE_OBJECT_TYPES = [
 #     ("POSE_BONE", "Pose Bone", "Rename pose bones"),
 #     ("OBJECT", "Object", "Rename objects"),
@@ -81,7 +85,7 @@ class BlenderTypeProvider:
                     self._cache["sequence_type"] = Sequence
                 except ImportError:
                     # フォールバック：何らかの理由でインポートできない場合は型をモックする
-                    print(
+                    log.error(
                         "警告: bpy.types.Sequence をインポートできません。モック化します。"
                     )
                     self._cache["sequence_type"] = type("MockSequence", (), {})
@@ -92,7 +96,7 @@ class BlenderTypeProvider:
                     self._cache["sequence_type"] = Strip
                 except ImportError:
                     # フォールバック：何らかの理由でインポートできない場合は型をモックする
-                    print(
+                    log.error(
                         "警告: bpy.types.Strip をインポートできません。モック化します。"
                     )
                     self._cache["sequence_type"] = type("MockStrip", (), {})

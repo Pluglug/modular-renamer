@@ -4,6 +4,10 @@ import bpy
 
 from ..constants import get_sequence_type
 
+import logging
+
+log = logging.getLogger(__name__)
+
 bl_ver = bpy.app.version
 
 BPY_TYPES_GPENCIL = [
@@ -72,19 +76,19 @@ class PointerCache:
         既にスキャン済みのコレクションはスキップされる。
         """
         if not isinstance(types_to_cache, set):
-            print(
+            log.warning(
                 f"警告: ensure_pointer_cache_for_types に Set 以外の型が渡されました: {type(types_to_cache)}"
             )
             types_to_cache = set(types_to_cache)  # フォールバック
 
-        print(f"PointerCache: Ensuring cache for types: {types_to_cache}")  # TEMPLOG
+        log.debug(f"PointerCache: Ensuring cache for types: {types_to_cache}")
         for obj_type in types_to_cache:
             if obj_type not in self._scanned_collections:
                 collection_key = self._get_collection_key_for_type(obj_type)
                 if collection_key:
                     self._scan_and_cache_pointers(obj_type, collection_key)
                 else:
-                    print(
+                    log.warning(
                         f"警告: PointerCache - 型 {obj_type} に対応するコレクションキーが見つかりません。"
                     )
 
@@ -95,12 +99,12 @@ class PointerCache:
 
         collection = getattr(self._context.blend_data, collection_key, None)
         if not collection:
-            print(
+            log.warning(
                 f"警告: PointerCache - コレクションが見つかりません: {collection_key}"
             )
             return
 
-        print(f"PointerCache: Scanning '{collection_key}' for pointers...")  # TEMPLOG
+        log.debug(f"PointerCache: Scanning '{collection_key}' for pointers...")
         count = 0
         for item in collection:
             try:
@@ -117,15 +121,15 @@ class PointerCache:
                 continue
             except Exception as e:
                 # Catch other potential errors during access
-                print(
+                log.error(
                     f"エラー: PointerCache - '{collection_key}' のアイテムアクセス中にエラー ({item}): {e}"
                 )
                 continue
 
         self._scanned_collections.add(collection_type)
-        print(
-            f"PointerCache: ...Cached {count} pointers from '{collection_key}'"
-        )  # TEMPLOG
+        # log.debug(
+        #     f"PointerCache: ...Cached {count} pointers from '{collection_key}'"
+        # )
 
     def get_object_by_pointer(
         self, pointer_value: Optional[int], expected_type: Optional[Type] = None
@@ -147,12 +151,14 @@ class PointerCache:
         obj = self._pointer_cache.get(pointer_value)
 
         if obj is None:
-            # print(f"Debug: Pointer 0x{pointer_value:x} not found in cache.") # TEMPLOG if needed
+            log.debug(f"Debug: Pointer 0x{pointer_value:x} not found in cache.")
             return None
 
         # オプションの型チェック
         if expected_type and not isinstance(obj, expected_type):
-            # print(f"Debug: Pointer 0x{pointer_value:x} found, but type mismatch (found {type(obj)}, expected {expected_type}).") # TEMPLOG if needed
+            log.debug(
+                f"Debug: Pointer 0x{pointer_value:x} found, but type mismatch (found {type(obj)}, expected {expected_type})."
+            )
             return None
 
         return obj
@@ -165,4 +171,4 @@ class PointerCache:
         """キャッシュをクリアする"""
         self._pointer_cache.clear()
         self._scanned_collections.clear()
-        print("PointerCache cleared.")  # TEMPLOG
+        log.debug("PointerCache cleared.")

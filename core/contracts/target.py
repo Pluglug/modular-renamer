@@ -8,6 +8,10 @@ from bpy.types import Context
 from ..blender.pointer_cache import PointerCache
 from ..target.scope import OperationScope
 
+from ...utils.logging import get_logger
+
+log = get_logger(__name__)
+
 
 class IRenameTarget(ABC):
     """リネーム対象インターフェース"""
@@ -94,7 +98,9 @@ class BaseRenameTarget(IRenameTarget, ABC):
         ):  # TODO: バージョン依存を集約
             return self._data.rename(name, mode="ALWAYS" if force_rename else "NEVER")
         else:
-            force_rename and print(f"Force Rename is not supported for {self._data}")
+            force_rename and log.warning(
+                f"Force Rename is not supported for {self._data}"
+            )
             self._data.name = name
             return "RENAMED"
 

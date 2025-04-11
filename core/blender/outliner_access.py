@@ -20,7 +20,9 @@ from .outliner_struct import (
     _SpaceOutliner,
 )
 
-DBG_RNA = True
+from ...utils.logging import get_logger
+
+log = get_logger(__name__)
 
 
 @dataclass
@@ -61,7 +63,7 @@ def get_selected_outliner_elements(
     """アウトライナーで選択されているツリー要素を収集する"""
     space = get_any_space_outliner(context)
     if not space:
-        print("アウトライナーが見つかりません")
+        log.error("アウトライナーが見つかりません")
         return []
 
     selected_elements = []
@@ -69,7 +71,7 @@ def get_selected_outliner_elements(
     # 最上位のツリー要素（ルート）を取得
     root = _SpaceOutliner.get_tree(space)
     if not root:
-        print("ツリー要素が見つかりません")
+        log.error("ツリー要素が見つかりません")
         return []
 
     # すべてのサブツリー要素を取得して選択状態をチェック
@@ -238,9 +240,7 @@ def analyze_rna_element(
 
     tree = element_info.tree_element
     if not tree or not tree.abstract_element:
-        DBG_RNA and print(
-            "[DEBUG] analyze_rna_element: abstract_element が見つかりません"
-        )
+        log.debug("analyze_rna_element: abstract_element が見つかりません")
         return None
 
     try:
@@ -284,14 +284,14 @@ def analyze_rna_element(
         # --- 他のタイプの特定ロジックを追加 ---
 
         # 特定できなかった場合は、最低限の情報を持つ基底クラスを返すか None を返す
-        DBG_RNA and print(
-            f"[DEBUG] analyze_rna_element: 要素タイプを特定できませんでした - {element_info.name}"
+        log.debug(
+            f"analyze_rna_element: 要素タイプを特定できませんでした - {element_info.name}"
         )
         # return RNAElementDetails(outliner_element_name=element_info.name, rna_pointer_value=rna_ptr_value)
         return None  # 特定できない場合はNoneが良いかもしれない
 
     except Exception as e:
-        DBG_RNA and print(f"[DEBUG] RNA要素の解析中にエラーが発生しました: {e}")
+        log.error(f"RNA要素の解析中にエラーが発生しました: {e}")
         import traceback
 
         traceback.print_exc()  # 詳細なエラーを出力
@@ -339,17 +339,15 @@ def _try_identify_shape_key(tree: TreeElement, name: str) -> Optional[dict]:
             # 1. オブジェクトをチェック
             for obj in bpy.data.objects:
                 if obj.as_pointer() == id_ptr_val:
-                    DBG_RNA and print(
-                        f"  [DEBUG] Check: Object '{obj.name}' matched ID."
-                    )
+                    log.debug(f"  Check: Object '{obj.name}' matched ID.")
                     if (
                         obj.type == "MESH"
                         and obj.data
                         and hasattr(obj.data, "shape_keys")
                         and obj.data.shape_keys
                     ):
-                        DBG_RNA and print(
-                            f"  [DEBUG] Found ShapeKey via Object '{obj.name}' -> Mesh '{obj.data.name}'"
+                        log.debug(
+                            f"  Found ShapeKey via Object '{obj.name}' -> Mesh '{obj.data.name}'"
                         )
                         return obj.data.shape_keys
                     # Grease Pencilなどの他のタイプも将来的に考慮？
@@ -358,21 +356,17 @@ def _try_identify_shape_key(tree: TreeElement, name: str) -> Optional[dict]:
             # 2. メッシュデータをチェック
             for mesh in bpy.data.meshes:
                 if mesh.as_pointer() == id_ptr_val:
-                    DBG_RNA and print(
-                        f"  [DEBUG] Check: Mesh '{mesh.name}' matched ID."
-                    )
+                    log.debug(f"  Check: Mesh '{mesh.name}' matched ID.")
                     if hasattr(mesh, "shape_keys") and mesh.shape_keys:
-                        DBG_RNA and print(
-                            f"  [DEBUG] Found ShapeKey via Mesh '{mesh.name}'"
-                        )
+                        log.debug(f"  Found ShapeKey via Mesh '{mesh.name}'")
                         return mesh.shape_keys
                     return None  # メッシュだがシェイプキーを持たない
 
             # 3. ShapeKeyデータブロック自体をチェック (直接リンクされている場合？)
             for sk_data in bpy.data.shape_keys:
                 if sk_data.as_pointer() == id_ptr_val:
-                    DBG_RNA and print(
-                        f"  [DEBUG] Check: ShapeKey '{sk_data.name}' matched ID directly."
+                    log.debug(
+                        f"  Check: ShapeKey '{sk_data.name}' matched ID directly."
                     )
                     return sk_data
 
@@ -383,23 +377,21 @@ def _try_identify_shape_key(tree: TreeElement, name: str) -> Optional[dict]:
             tse = te.store_elem.contents
             if tse.id:  # tse.id は void* なのでポインタ値を取得
                 current_id_ptr_val = int(cast(tse.id, c_void_p).value)
-                DBG_RNA and print(
-                    f"  [DEBUG] Checking current element ID: {current_id_ptr_val:#x}"
-                )
+                log.debug(f"  Checking current element ID: {current_id_ptr_val:#x}")
                 shape_key_datablock = _check_id_for_shape_key(current_id_ptr_val)
                 if shape_key_datablock:
                     # ShapeKeyを見つけたら、それを使っているオブジェクトを探す
                     mesh_user = shape_key_datablock.user
                     if mesh_user and isinstance(mesh_user, bpy.types.Mesh):
                         owner_object = get_object_from_mesh_datablock(mesh_user)
-                    DBG_RNA and print(
-                        f"  [DEBUG] Found ShapeKey '{shape_key_datablock.name}', Owner Object: {owner_object.name if owner_object else 'None'}"
+                    log.debug(
+                        f"  Found ShapeKey '{shape_key_datablock.name}', Owner Object: {owner_object.name if owner_object else 'None'}"
                     )
                     return owner_object, shape_key_datablock
 
         # 親要素を遡る
         if te.parent:
-            DBG_RNA and print("  [DEBUG] Checking parent element...")
+            log.debug("  Checking parent element...")
             parent = te.parent.contents
             # 親要素から再帰的に探索
             owner_object, shape_key_datablock = _find_shape_key_owner_data(parent)
@@ -410,24 +402,24 @@ def _try_identify_shape_key(tree: TreeElement, name: str) -> Optional[dict]:
         return None, None
 
     # --- Main Logic ---
-    DBG_RNA and print(f"[DEBUG] _try_identify_shape_key started for '{name}'")
+    log.debug(f"_try_identify_shape_key started for '{name}'")
     owner_object, shape_keys_datablock = _find_shape_key_owner_data(tree)
 
     if not shape_keys_datablock:
-        DBG_RNA and print(f"[DEBUG] No ShapeKey datablock found for '{name}'")
+        log.debug(f"No ShapeKey datablock found for '{name}'")
         return None
 
     # ShapeKeyデータブロックが見つかったら、名前で KeyBlock を探す
     key_block = shape_keys_datablock.key_blocks.get(name)
 
     if not key_block:
-        DBG_RNA and print(
-            f"[DEBUG] KeyBlock '{name}' not found in ShapeKey '{shape_keys_datablock.name}'"
+        log.debug(
+            f"KeyBlock '{name}' not found in ShapeKey '{shape_keys_datablock.name}'"
         )
         return None
 
-    DBG_RNA and print(
-        f"[DEBUG] Successfully identified ShapeKey: Owner='{owner_object.name if owner_object else 'None'}', SK='{shape_keys_datablock.name}', KB='{key_block.name}'"
+    log.debug(
+        f"Successfully identified ShapeKey: Owner='{owner_object.name if owner_object else 'None'}', SK='{shape_keys_datablock.name}', KB='{key_block.name}'"
     )
     return {
         "owner_object": owner_object,

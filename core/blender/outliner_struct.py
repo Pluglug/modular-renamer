@@ -13,6 +13,9 @@ from ctypes import (
     sizeof,
 )
 from typing import List
+from ...utils.logging import get_logger
+
+log = get_logger(__name__)
 
 
 # In outliner_utils.py or a similar utility module
@@ -412,7 +415,7 @@ class _SpaceOutliner(Structure):
             else:
                 return so.contents.tree.first
         except Exception as e:
-            print(f"ツリー取得エラー: {e}")
+            log.error(f"ツリー取得エラー: {e}")
             return None
 
 

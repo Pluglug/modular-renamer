@@ -13,6 +13,10 @@ from ..contracts.target import IRenameTarget
 from ..target.registry import RenameTargetRegistry
 from ..target.scope import CollectionSource, OperationScope
 
+from ...utils.logging import get_logger
+
+log = get_logger(__name__)
+
 
 class TargetCollector:
     """リネーム対象収集クラス"""
@@ -51,7 +55,7 @@ class TargetCollector:
                 raise ValueError(f"サポートされていないソースタイプ: {self.scope.mode}")
 
         except Exception as e:
-            print(f"選択要素の取得中にエラーが発生しました: {str(e)}")
+            log.error(f"選択要素の取得中にエラーが発生しました: {str(e)}")
             return []
 
     def _get_selected_from_view3d(self) -> List[Union[Object, PoseBone, EditBone]]:
@@ -136,10 +140,12 @@ class TargetCollector:
 
         # --- 3. CacheManagerにキャッシュ構築を指示 ---
         if required_types:
-            print(f"Collector: Requesting cache for types: {required_types}")  # Debug
+            log.debug(
+                f"Collector: Requesting cache for types: {required_types}"
+            )  # Debug
             self.pointer_cache.ensure_pointer_cache_for_types(required_types)
         else:
-            print("Collector: No required types identified for caching.")  # Debug
+            log.debug("Collector: No required types identified for caching.")  # Debug
 
         # --- 4. IRenameTargetインスタンスの生成 (2回目のループ) ---
         for idx, item in enumerate(primary_items):
@@ -153,7 +159,7 @@ class TargetCollector:
                     if target_instance:
                         targets.append(target_instance)
                 except Exception as e:
-                    print(
+                    log.error(
                         f"エラー: ターゲット '{target_cls.__name__}' の生成に失敗しました ({item}): {e}"
                     )
                     import traceback

@@ -7,6 +7,10 @@ from ..constants import SequenceType
 from ..contracts.target import IRenameTarget
 from ..target.scope import CollectionSource, OperationScope
 
+from ...utils.logging import get_logger
+
+log = get_logger(__name__)
+
 
 class RenameTargetRegistry:
     """リネームターゲットを管理するレジストリ"""
@@ -48,15 +52,15 @@ class RenameTargetRegistry:
         """デフォルトのターゲットクラスを登録する (遅延初期化)"""
         if not self._target_classes_by_bl_type and not self._target_classes_by_ol_type:
             self._initialize_defaults()
-            print(
+            log.debug(
                 f"RenameTargetRegistry: Lazy Initialized with {len(self._target_classes_by_bl_type)} bl_type classes, {len(self._target_classes_by_ol_type)} ol_type classes, {len(self._target_classes_by_ol_idcode)} ol_idcode classes"
             )  # TEMPLOG
         else:
-            print("RenameTargetRegistry: Already initialized.")  # TEMPLOG
+            log.debug("RenameTargetRegistry: Already initialized.")  # TEMPLOG
 
     def _initialize_defaults(self):
         """デフォルトのターゲットクラスを登録"""
-        print("RenameTargetRegistry: Initializing defaults...")  # TEMPLOG
+        log.debug("RenameTargetRegistry: Initializing defaults...")  # TEMPLOG
 
         from ...targets import (  # NodeRenameTarget,; StripRenameTarget,; FileRenameTarget,
             BoneRenameTarget,
@@ -74,7 +78,7 @@ class RenameTargetRegistry:
         #     from . import targets
         #     import inspect
         # except ImportError as e:
-        #     print(f"RenameTargetRegistry: Error importing targets module: {e}")
+        #     log.error(f"RenameTargetRegistry: Error importing targets module: {e}")
         #     return
 
         # registered_count = 0
@@ -129,7 +133,7 @@ class RenameTargetRegistry:
 
         if bl_type:
             if bl_type in self._target_classes_by_bl_type:
-                print(
+                log.warning(
                     f"警告: bl_type '{bl_type}' は既に登録されています。上書きします。"
                 )
             self._target_classes_by_bl_type[bl_type] = target_class
@@ -142,7 +146,7 @@ class RenameTargetRegistry:
 
         if ol_idcode is not None:  # ol_idcode での登録
             if ol_idcode in self._target_classes_by_ol_idcode:
-                print(
+                log.warning(
                     f"警告: ol_idcode '{ol_idcode}' は既に登録されています。上書きします。"
                 )
             self._target_classes_by_ol_idcode[ol_idcode] = target_class
@@ -172,7 +176,7 @@ class RenameTargetRegistry:
                         return target_cls
                     else:
                         # IDコードは一致したがol_typeが異なるレアケース？警告を出すなど
-                        print(
+                        log.warning(
                             f"警告: IDコード {item.idcode} でクラス {target_cls.__name__} が見つかりましたが、ol_type が一致しません ({item.type})"
                         )
                         # fallback to ol_type search? or return None?
@@ -187,7 +191,7 @@ class RenameTargetRegistry:
                     # TSE_RNA_STRUCTの場合、parent.store_elem.contents.idで親要素を取得
                     # このロジックはここに書くか、各クラスのcan_createにするか要検討
 
-                    print(
+                    log.warning(
                         f"警告: ol_type {item.type} に複数の候補クラスが見つかりました: {possible_classes}"
                     )
                     # ここで item の情報 (idcodeなど) を使ってさらに絞り込む
@@ -196,7 +200,7 @@ class RenameTargetRegistry:
                         if ol_idcode == item.idcode:
                             return cls
 
-                print(
+                log.warning(
                     f"未対応のアイテムです。\nname: {item.name}\ntype: {item.type}\nidcode: {item.idcode}"
                 )
 

@@ -10,6 +10,10 @@ from ..core.blender.pointer_cache import PointerCache
 from ..core.contracts.target import BaseRenameTarget, IRenameTarget
 from ..core.target.scope import CollectionSource, OperationScope
 
+from ..utils.logging import get_logger
+
+log = get_logger(__name__)
+
 
 class ObjectRenameTarget(BaseRenameTarget):
     """オブジェクトのリネームターゲット"""
@@ -142,7 +146,7 @@ class BoneRenameTarget(BaseRenameTarget, BoneTargetMixin):
         # しかしオブジェクトモードでのアウトライナーアクセスくらいだと思う
         if scope.mode == CollectionSource.VIEW3D:  # TEMPLOG
             # ここには来ないはず  # TEMPLOG
-            print(
+            log.warning(
                 f"NOT INTENDED: BoneRenameTarget.can_create_from_scope: {source_item} {scope.mode}"
             )  # TEMPLOG
             return False  # TEMPLOG
@@ -162,7 +166,7 @@ class BoneRenameTarget(BaseRenameTarget, BoneTargetMixin):
         target_bone: Optional[bpy.types.Bone] = None
 
         if scope.mode == CollectionSource.VIEW3D:
-            print(
+            log.warning(
                 f"NOT INTENDED: BoneRenameTarget.create_from_scope: {source_item} {scope.mode}"
             )  # TEMPLOG
             return None
@@ -181,16 +185,16 @@ class BoneRenameTarget(BaseRenameTarget, BoneTargetMixin):
                     if found_bone:
                         target_bone = found_bone
                 else:
-                    print(
+                    log.error(
                         f"エラー: BoneTarget - Armature Dataが見つかりません (ptr: {source_item.id:#x})"
                     )
 
         if target_bone:
             return cls(target_bone, context)
 
-        print(
+        log.warning(
             f"Failed: BoneRenameTarget.create_from_scope: {source_item} {scope}"
-        )  # TEMPLOG
+        )
         return None
 
 
@@ -274,16 +278,16 @@ class PoseBoneRenameTarget(BaseRenameTarget, BoneTargetMixin):
                     if found_pose_bone:
                         target_object = found_pose_bone
                 else:
-                    print(
+                    log.error(
                         f"エラー: PoseBoneTarget - Armature Objectが見つかりません (ptr: {source_item.id:#x})"
                     )
 
         if target_object:
             return cls(target_object, context)
 
-        print(
+        log.warning(
             f"Failed: PoseBoneRenameTarget.create_from_scope: {source_item} {scope.mode}"
-        )  # TEMPLOG
+        )
         return None
 
 
@@ -361,14 +365,14 @@ class EditBoneRenameTarget(BaseRenameTarget, BoneTargetMixin):
                     if found_edit_bone:
                         target_object = found_edit_bone
                 else:
-                    print(
+                    log.warning(
                         f"エラー: EditBoneTarget - Armature Dataが見つかりません (ptr: {source_item.id:#x})"
                     )
 
         if target_object:
             return cls(target_object, context)
 
-        print(  # TEMPLOG
+        log.warning(  # TEMPLOG
             f"Failed: EditBoneRenameTarget.create_from_scope: {source_item} {scope.mode}"  # TEMPLOG
         )  # TEMPLOG
         return None

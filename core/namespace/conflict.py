@@ -71,7 +71,7 @@ class ConflictResolver:
         # elif strategy == self.STRATEGY_FORCE:
         #     final_name = self._resolve_with_force(proposed_name)
         else:
-            print(f"Not Supported Strategy: {strategy}")
+            log.warning(f"Not Supported Strategy: {strategy}")
             final_name = proposed_name
 
         # 解決された名前で名前空間を更新
