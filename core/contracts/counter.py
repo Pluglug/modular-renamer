@@ -109,6 +109,9 @@ class BaseCounter(BaseElement, ICounter):
 
     def add(self, value: int) -> None:
         """Add a value to the counter"""
+        if value == 0:
+            return
+
         if self._value_int is None:
             self.value_int = value
         else:
@@ -120,6 +123,14 @@ class BaseCounter(BaseElement, ICounter):
             self.value_int = 1
         else:
             self.value_int = self._value_int + 1
+
+    def standby(self) -> None:
+        """カウンターの状態をリセットする"""
+        super().standby()
+        self._value_int = None
+        self.forward = None
+        self.backward = None
+        print(f"counter standby: {self._value_int}")
 
     def parse(self, name: str) -> bool:
         """Parse counter value from name string"""
@@ -154,13 +165,23 @@ class BaseCounter(BaseElement, ICounter):
             other: カウンターの値を奪う対象のカウンター
             force: 自分の値が存在する場合でも奪うかどうか
         """
-        if other.value is None:
+        other_value_int = other.value_int # Noneの可能性あり
+
+        if other_value_int is None:
             return
 
-        if not force and self.value is not None and self.value_int > 0:
-            self.add(other.value_int)
-            other.set_value(None)
+        # self.value_int も None の可能性があるのでチェック
+        if not force and self.value is not None and self.value_int is not None and self.value_int > 0:
+            # other_value_int は None でないことを確認済みなので、そのまま加算
+            # self.add(other_value_int)  # これは不要 ConflictResolver で加算できる
+            other.set_value(None) # 元のカウンターをリセット
             return
 
-        self.set_value(other.value_int)
-        other.set_value(None)
+        # other_value_int は None でないので、そのまま設定
+        # set_value は str | None を期待するので、int を str に変換する
+        self.set_value(self.format_value(other_value_int))
+        # set_value は int も内部で処理してくれるが、型チェックエラーを避けるため str に変換するか、
+        # もしくは BaseElement.set_value の型ヒントを見直す必要があるかもしれない。
+        # ここでは一旦 int を渡す形にする (動作はするはず)
+
+        other.set_value(None) # 元のカウンターをリセット

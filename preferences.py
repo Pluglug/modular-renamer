@@ -14,12 +14,13 @@ from bpy.props import (
     PointerProperty,
     StringProperty,
 )
+from bpy.app.translations import contexts as i18n_contexts
 
 from .addon import ADDON_ID, prefs
 from .core.constants import ELEMENT_TYPE_ITEMS, POSITION_ENUM_ITEMS, SEPARATOR_ITEMS
 from .core.pattern.facade import PatternFacade
 # from .ui.props import NamingPatternProperty
-from .utils.logging import get_logger
+from .utils.logging import get_logger, LoggerPreferences
 
 log = get_logger(__name__)
 
@@ -29,10 +30,13 @@ log = get_logger(__name__)
 class ModifiedPropMixin:
     def _update_modified(self):
         """自分と親のmodifiedフラグをTrueに"""
+        log.debug(f"Updating modified for {self}")  # 呼ばれてる でもnameはない
         if hasattr(self, "modified"):
+            log.debug(f"self.modified: {self.modified}")
             self.modified = True
         parent = getattr(self, "id_data", None)
         if parent and hasattr(parent, "_update_modified"):
+            log.debug(f"parent: {parent}")  # FIXME: 呼ばれて無さそう
             parent._update_modified()
 
 
@@ -94,6 +98,7 @@ class NamingElementProperty(bpy.types.PropertyGroup, ModifiedPropMixin):
         description="Character used to separate this element from the next",
         items=SEPARATOR_ITEMS,
         default="_",
+        translation_context=i18n_contexts.operator_default,
         update=modified_updater(),
     )
 
@@ -298,13 +303,15 @@ def update_edit_mode(self, context):
             pf.synchronize_patterns()
 
         except Exception as e:
-            log.error(f"パターンの同期中にエラーが発生しました: {e}", exc_info=True)
+            log.error(f"パターンの同期中にエラーが発生しました: {e}")
 
 
 class ModularRenamerPreferences(AddonPreferences):
     """Addon preferences for ModularRenamer"""
 
     bl_idname = ADDON_ID
+
+    logger_prefs: PointerProperty(type=LoggerPreferences)
 
     # Whether the pattern is in edit mode
     edit_mode: BoolProperty(
@@ -401,7 +408,7 @@ class ModularRenamerPreferences(AddonPreferences):
             log.info(f"Patterns exported to {filepath}")
             return True
         except Exception as e:
-            log.error(f"Error exporting patterns: {e}", exc_info=True)
+            log.error(f"Error exporting patterns: {e}")
             return False
 
     # Import patterns from JSON
@@ -489,7 +496,7 @@ class ModularRenamerPreferences(AddonPreferences):
             log.error(f"Error decoding JSON from file: {filepath}")
             return False
         except Exception as e:
-            log.error(f"Error importing patterns: {e}", exc_info=True)
+            log.error(f"Error importing patterns: {e}")
             # インポート失敗時も部分的に読み込まれたパターンは残る可能性がある
             return False
 
@@ -581,23 +588,22 @@ class ModularRenamerPreferences(AddonPreferences):
             position.xaxis_enabled = True
             position.yaxis_enabled = False
             position.yaxis_enabled = False
-        # Z軸の設定（デフォルトで無効だが、設定可能にする）
+            # Z軸の設定（デフォルトで無効だが、設定可能にする）
             position.yaxis_enabled = False
-        # Z軸の設定（デフォルトで無効だが、設定可能にする）
+            # Z軸の設定（デフォルトで無効だが、設定可能にする）
             position.zaxis_enabled = False
 
             log.info("Default patterns created successfully.")
             return True  # 作成成功
         except Exception as e:
-            log.error(f"Error creating default patterns: {e}", exc_info=True)
+            log.error(f"Error creating default patterns: {e}")
             # 作成中にエラーが発生した場合、部分的に作成されたパターンが残る可能性がある
             # 必要であれば、ここでロールバック処理を追加する
             return False  # 作成失敗
 
-    # def draw(self, context):
-    #     layout = self.layout
-    #     self.draw_logger_preferences(layout) # AddonLoggerPreferencesMixin からのメソッド
-
+    def draw(self, context):
+        layout = self.layout
+        LoggerPreferences.draw(self.logger_prefs, layout)
 
 
 def register():

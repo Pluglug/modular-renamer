@@ -114,6 +114,13 @@ class INameElement(ABC):
         """
         pass
 
+    @abstractmethod
+    def generate_random_value(self) -> Tuple[str, str]:
+        """
+        テスト用のランダムな値を生成する
+        """
+        pass
+
 
 class BaseElement(INameElement, ABC):
     """
@@ -263,6 +270,6 @@ class BaseElement(INameElement, ABC):
         pass
 
     @abstractmethod
-    def generate_random_value(self) -> str:
+    def generate_random_value(self) -> Tuple[str, str]:
         """Generate a random value for this element (for testing)"""
         pass
