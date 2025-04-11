@@ -10,7 +10,7 @@ from bpy.props import (
     IntProperty,
     StringProperty,
 )
-from bpy.types import Context
+from bpy.types import Context, Operator
 
 from ..addon import prefs
 from ..core.constants import ELEMENT_TYPE_ITEMS, POSITION_ENUM_ITEMS
@@ -22,6 +22,9 @@ from ..core.target.scope import OperationScope
 from ..utils.logging import get_logger
 
 log = get_logger(__name__)
+
+# ImportHelper と ExportHelper を追加
+from bpy_extras.io_utils import ExportHelper, ImportHelper
 
 
 class MODRENAMER_OT_Rename(bpy.types.Operator):
@@ -237,757 +240,178 @@ class MODRENAMER_PT_MainPanel(bpy.types.Panel):
         layout = self.layout
         pr = prefs()
 
+        # --- Save User Prefs (Consider moving to preferences panel?) ---
         row = layout.row()
-        row.operator("wm.save_userpref", text="Save User Prefs")
+        row.operator("wm.save_userpref", text="Save User Prefs", icon='FILE_TICK')
 
+        layout.separator()
         row = layout.row()
-        row.label(text="Pattern:")
-
+        row.label(text="Pattern Management:", icon='SETTINGS')
+        
         if pr.patterns:
             row = layout.row()
-            row.template_list(
+            # Pattern List
+            col_list = row.column()
+            col_list.template_list(
                 "MODRENAMER_UL_PatternList",
                 "pattern_list",
                 pr,
                 "patterns",
                 pr,
                 "active_pattern_index",
+                rows=5  # Limit rows for compactness
             )
+            # Pattern List Controls (Add, Remove, Move)
+            col_controls = row.column(align=True)
+            col_controls.operator(MODRENAMER_OT_AddPattern.bl_idname, icon='ADD', text="")
+            col_controls.operator(MODRENAMER_OT_RemovePattern.bl_idname, icon='REMOVE', text="")
+            col_controls.separator()
+            col_controls.operator(MODRENAMER_OT_MovePatternUp.bl_idname, icon='TRIA_UP', text="")
+            col_controls.operator(MODRENAMER_OT_MovePatternDown.bl_idname, icon='TRIA_DOWN', text="")
+            
+            # --- Export Selected Pattern Button (Moved below list/controls) ---
+            row_export = layout.row() # Use layout for full width button if desired
+            op = row_export.operator(MODRENAMER_OT_ExportPatterns.bl_idname, icon='EXPORT', text="Export Selected Pattern")
+            op.export_selected = True  # Set the property for this button instance
+            # Disable button if no pattern is selected or list is empty
+            row_export.enabled = 0 <= pr.active_pattern_index < len(pr.patterns)
 
-            col = row.column(align=True)
-            col.operator("modrenamer.add_pattern", icon="ADD", text="")
-            col.operator("modrenamer.remove_pattern", icon="REMOVE", text="")
-            col.separator()
-            col.operator(
-                "modrenamer.pattern_preview", icon="OUTLINER_OB_LIGHT", text=""
-            )
-
-            # Show active pattern details
-            if pr.active_pattern_index < len(pr.patterns):
-                pattern = pr.patterns[pr.active_pattern_index]
-
-                # Object type
-                row = layout.row()
-
-                # Edit mode toggle
-                row = layout.row()
-                if pr.edit_mode:
-                    row.alert = True
-                    row.operator(
-                        "modrenamer.toggle_edit_mode",
-                        text="Exit Edit Mode",
-                        icon="SCREEN_BACK",
-                    )
+            # Display Active Pattern Details (Keep this section)
+            if 0 <= pr.active_pattern_index < len(pr.patterns):
+                active_pattern = pr.patterns[pr.active_pattern_index]
+                box = layout.box()
+                row_pattern_name = box.row()
+                row_pattern_name.prop(active_pattern, "name") # Allow renaming here
+                # TODO: Add controls to edit active_pattern elements here or in a sub-panel
+                # Example: Display elements (read-only)
+                box_elements = box.box()
+                box_elements.label(text="Elements:")
+                if active_pattern.elements:
+                    for i, element in enumerate(active_pattern.elements):
+                        row_elem = box_elements.row()
+                        row_elem.label(text=f"{i+1}. {element.display_name} ({element.element_type})")
                 else:
-                    row.operator(
-                        "modrenamer.toggle_edit_mode",
-                        text="Enter Edit Mode",
-                        icon="SETTINGS",
-                    )
-
-                # Elements section
-                layout.separator()
-
-                if pr.edit_mode:
-                    # In edit mode, show element list with edit controls
-                    self.draw_edit_mode(layout, pattern)
-                else:
-                    # Normal mode, show elements for renaming
-                    layout.label(text="Elements:")
-                    self.draw_pattern_elements(layout, pattern)
-
-                    # Actions
-                    # layout.separator()
-                    # row = layout.row(align=True)
-                    # row.operator("modrenamer.bulk_rename", icon="SORTSIZE")
+                    box_elements.label(text="No elements defined.")
+                    
         else:
-            layout.operator(
-                "modrenamer.create_default_patterns", text="Create Default Patterns"
-            )
+            layout.label(text="No patterns created yet.")
+            # Option to add the first pattern directly from the main panel?
+            layout.operator(MODRENAMER_OT_AddPattern.bl_idname, icon='ADD', text="Add New Pattern")
 
-    def draw_edit_mode(self, layout, pattern):
-        """Draw the edit mode UI for element management"""
-        box = layout.box()
-        row = box.row()
-        row.label(text="Elements:", icon="OUTLINER_DATA_GP_LAYER")
-
-        # Add element button
-        row.operator("modrenamer.add_element", text="", icon="ADD")
-
-        # Element list - カスタムUIリストを使用
-        row = box.row()
-        row.template_list(
-            "MODRENAMER_UL_ElementsList",
-            "element_list",
-            pattern,
-            "elements",
-            pattern,
-            "active_element_index",
-        )
-
-        # Element controls
-        col = row.column(align=True)
-        col.operator("modrenamer.move_element_up", text="", icon="TRIA_UP")
-        col.operator("modrenamer.move_element_down", text="", icon="TRIA_DOWN")
-        col.separator()
-        col.operator("modrenamer.remove_element", text="", icon="REMOVE")
-
-        # Selected element details
-        if pattern.active_element_index < len(pattern.elements):
-            element = pattern.elements[pattern.active_element_index]
-
-            # Element properties
-            ele_box = box.box()
-            row = ele_box.row()
-            row.label(text=f"ID: {element.id} (DEBUG)", translate=False)  # DEBUG
-            row = ele_box.row()  # DEBUG
-            row.prop(element, "display_name", text="Name", translate=False)
-            row.prop(element, "enabled", text="", translate=False)
-
-            # Element type (read-only in edit mode)
-            row = ele_box.row()
-            row.label(text=f"Type: {element.element_type}", translate=False)
-
-            # Separator (disabled for first element)
-            row = ele_box.row()
-            row.enabled = element.order > 0
-            row.prop(element, "separator", text="Separator", translate=False)
-
-            # Element-specific properties
-            self.draw_element_properties(ele_box, element, pattern.active_element_index)
-        else:
-
-            ele_box = layout.box()
-            row = ele_box.row()
-            row.label(text="No element selected.")
-
-    def draw_element_properties(self, layout, element, element_index):
-        """Draw the properties specific to each element type in edit mode"""
         layout.separator()
-
-        if element.element_type == "text":
-            self.draw_text_element_properties(layout, element, element_index)
-        elif element.element_type == "position":
-            self.draw_position_element_properties(layout, element)
-        elif element.element_type == "numeric_counter":
-            self.draw_counter_element_properties(layout, element)
-        # elif element.element_type == "blender_counter":
-        #     self.draw_counter_element_properties(layout, element)
-        # elif element.element_type == "free_text":
-        #     self.draw_free_text_element_properties(layout, element)
-        # elif element.element_type == "date":
-        #     self.draw_date_element_properties(layout, element)
-        # elif element.element_type == "regex":
-        #     self.draw_regex_element_properties(layout, element)
-
-    def draw_text_element_properties(self, layout, element, element_index):
-        """Draw properties for text elements in edit mode"""
-        row = layout.row()
-        row.label(text="Text Items:")
-
-        # Add item button
-        row.operator("modrenamer.add_text_item", text="", icon="ADD").element_index = (
-            element_index
-        )
-
-        # Text items list - カスタムUIリストを使用
-        row = layout.row()
-        row.template_list(
-            "MODRENAMER_UL_TextItemsList",
-            "text_item_list",
-            element,
-            "items",
-            element,
-            "active_item_index",
-        )
-
-        # Item controls
-        col = row.column(align=True)
-        col.operator(
-            "modrenamer.move_text_item_up", text="", icon="TRIA_UP"
-        ).element_index = element_index
-        col.operator(
-            "modrenamer.move_text_item_down", text="", icon="TRIA_DOWN"
-        ).element_index = element_index
-        col.separator()
-        col.operator(
-            "modrenamer.remove_text_item", text="", icon="REMOVE"
-        ).element_index = element_index
-
-        # Edit selected item
-        if element.active_item_index < len(element.items):
-            item = element.items[element.active_item_index]
-            row = layout.row()
-            row.prop(item, "name", text="Item", placeholder="Enter any word")
-
-    def draw_position_element_properties(self, layout, element):
-        """Draw properties for position elements in edit mode"""
-        # X軸の設定
-        box = layout.box()
-        row = box.row()
-        row.prop(element, "xaxis_enabled", text="X Axis", translate=False)
-
-        if element.xaxis_enabled:
-            row = box.row()
-            row.label(text="X Axis Type:")
-            row = box.row()
-            row.prop(element, "xaxis_type", text="", translate=False)
-
-        # Y軸の設定
-        box = layout.box()
-        row = box.row()
-        row.prop(element, "yaxis_enabled", text="Y Axis (Top/Bot)", translate=False)
-
-        # Z軸の設定
-        box = layout.box()
-        row = box.row()
-        row.prop(element, "zaxis_enabled", text="Z Axis (Fr/Bk)", translate=False)
-
-    def draw_counter_element_properties(self, layout, element):
-        """Draw properties for counter elements in edit mode"""
-        row = layout.row()
-        row.prop(element, "padding", text="Padding", translate=False)
-
-    # def draw_free_text_element_properties(self, layout, element):
-    #     """Draw properties for free text elements in edit mode"""
-    #     row = layout.row()
-    #     row.prop(element, "default_text", text="Default Text")
-
-    # def draw_date_element_properties(self, layout, element):
-    #     """Draw properties for date elements in edit mode"""
-    #     row = layout.row()
-    #     row.prop(element, "date_format", text="Format")
-
-    # def draw_regex_element_properties(self, layout, element):
-    #     """Draw properties for regex elements in edit mode"""
-    #     row = layout.row()
-    #     row.prop(element, "pattern", text="Pattern")
-
-    def draw_pattern_elements(self, layout, pattern):
-        """Draw the elements of a pattern for renaming (non-edit mode)"""
-        for element in sorted(pattern.elements, key=lambda e: e.order):
-            if not element.enabled:
-                continue
-
-            box = layout.box()
-            row = box.row()
-            row.label(text=element.display_name, translate=False)
-
-            if element.element_type == "text":
-                self.draw_text_element(box, element)
-            elif element.element_type == "position":
-                self.draw_position_element(box, element)
-            elif element.element_type == "numeric_counter":
-                self.draw_counter_element(box, element)
-            # elif element.element_type == "blender_counter":
-            #     self.draw_counter_element(box, element)
-            # elif element.element_type == "free_text":
-            #     self.draw_free_text_element(box, element)
-            # elif element.element_type == "date":
-            #     self.draw_date_element(box, element)
-            # elif element.element_type == "regex":
-            #     self.draw_regex_element(box, element)
-
-    def draw_text_element(self, layout, element):
-        """Draw UI for a text element in normal mode"""
-        flow = layout.column_flow(columns=3)  # TODO: 3列ではなく、要素数や画面幅に応じて可変にする
-        for idx, item in enumerate(element.items):
-            op = flow.operator("modrenamer.rename", text=item.name, translate=False)
-            op.operation_type = RenameOperationType.ADD_REPLACE
-            op.target_element = element.id
-            op.index = idx
-
-        row = layout.row(align=True)
-        op = row.operator("modrenamer.rename", text="Remove", icon="X")
-        op.operation_type = RenameOperationType.REMOVE
-        op.target_element = element.id
-
-    def draw_position_element(self, layout, element):
-        """Draw UI for a position element in normal mode"""
-        # すべての有効な軸の値を表示
-        current_index = 0
-
-        # X軸の値
-        if element.xaxis_enabled:
-            pos_parts = element.xaxis_type.split("|")
-            if len(pos_parts) == 2:
-                left, right = pos_parts
-                row = layout.row(align=True)
-
-                # Left position
-                op = row.operator("modrenamer.rename", text=left, translate=False)
-                op.operation_type = RenameOperationType.ADD_REPLACE
-                op.target_element = element.id
-                op.index = current_index
-                current_index += 1
-
-                # Right position
-                op = row.operator("modrenamer.rename", text=right, translate=False)
-                op.operation_type = RenameOperationType.ADD_REPLACE
-                op.target_element = element.id
-                op.index = current_index
-                current_index += 1
-
-        # Y軸の値
-        if element.yaxis_enabled:
-            # 定数から取得 (Top|Bot)
-            pos_parts = POSITION_ENUM_ITEMS["YAXIS"][0][0].split("|")
-            if len(pos_parts) == 2:
-                top, bot = pos_parts
-                row = layout.row(align=True)
-
-                # Top position
-                op = row.operator("modrenamer.rename", text=top, translate=False)
-                op.operation_type = RenameOperationType.ADD_REPLACE
-                op.target_element = element.id
-                op.index = current_index
-                current_index += 1
-
-                # Bottom position
-                op = row.operator("modrenamer.rename", text=bot, translate=False)
-                op.operation_type = RenameOperationType.ADD_REPLACE
-                op.target_element = element.id
-                op.index = current_index
-                current_index += 1
-
-        # Z軸の値
-        if element.zaxis_enabled:
-            # 定数から取得 (Fr|Bk)
-            pos_parts = POSITION_ENUM_ITEMS["ZAXIS"][0][0].split("|")
-            if len(pos_parts) == 2:
-                front, back = pos_parts
-                row = layout.row(align=True)
-
-                # Front position
-                op = row.operator("modrenamer.rename", text=front, translate=False)
-                op.operation_type = RenameOperationType.ADD_REPLACE
-                op.target_element = element.id
-                op.index = current_index
-                current_index += 1
-
-                # Back position
-                op = row.operator("modrenamer.rename", text=back, translate=False)
-                op.operation_type = RenameOperationType.ADD_REPLACE
-                op.target_element = element.id
-                op.index = current_index
-                current_index += 1
-
-        # Remove ボタン (すべてのposition要素共通)
-        row = layout.row(align=True)
-        op = row.operator("modrenamer.rename", text="Remove", icon="X")
-        op.operation_type = RenameOperationType.REMOVE
-        op.target_element = element.id
-        # op.index は REMOVE 操作では使用されないため設定不要 (デフォルトの0で良い)
-
-    def draw_counter_element(self, layout, element):
-        """Draw UI for a counter element in normal mode"""
-        flow = layout.column_flow(columns=5)
-        for i in range(1, 11):
-            op = flow.operator("modrenamer.rename", text=f"{i:0{element.padding}d}", translate=False)
-            op.operation_type = RenameOperationType.ADD_REPLACE
-            op.target_element = element.id
-            op.index = i
-
-        row = layout.row(align=True)
-        op = row.operator("modrenamer.rename", text="Remove", icon="X")
-        op.operation_type = RenameOperationType.REMOVE
-        op.target_element = element.id
-        op.index = 0
-
-    # def draw_free_text_element(self, layout, element):
-    #     """Draw UI for a free text element in normal mode"""
-    #     row = layout.row(align=True)
-    #     row.prop(element, "default_text", text="")
-    #     op = row.operator("modrenamer.add_remove_element", text="", icon="CHECKMARK")
-    #     op.operation = "add"
-    #     op.element_id = element.id
-    #     op.value = element.default_text
-
-    #     row = layout.row(align=True)
-    #     op = row.operator("modrenamer.add_remove_element", text="Remove", icon="X")
-    #     op.operation = "delete"
-    #     op.element_id = element.id
-
-    # def draw_date_element(self, layout, element):
-    #     """Draw UI for a date element in normal mode"""
-    #     row = layout.row()
-    #     row.prop(element, "date_format", text="Format")
-    #     op = row.operator("modrenamer.add_remove_element", text="", icon="CHECKMARK")
-    #     op.operation = "add"
-    #     op.element_id = element.id
-    #     op.value = "date"  # Will be formatted when applied
-
-    #     row = layout.row(align=True)
-    #     op = row.operator("modrenamer.add_remove_element", text="Remove", icon="X")
-    #     op.operation = "delete"
-    #     op.element_id = element.id
-
-    # def draw_regex_element(self, layout, element):
-    #     """Draw UI for a regex element in normal mode"""
-    #     row = layout.row()
-    #     row.prop(element, "pattern", text="Pattern")
-
-    #     row = layout.row(align=True)
-    #     op = row.operator("modrenamer.add_remove_element", text="Add", icon="CHECKMARK")
-    #     op.operation = "add"
-    #     op.element_id = element.id
-    #     op.value = element.pattern
-
-    #     row = layout.row(align=True)
-    #     op = row.operator("modrenamer.add_remove_element", text="Remove", icon="X")
-    #     op.operation = "delete"
-    #     op.element_id = element.id
+        # --- Rename Operator Section ---
+        box_rename = layout.box()
+        row_rename = box_rename.row()
+        row_rename.operator(MODRENAMER_OT_Rename.bl_idname, text="Rename Selected Objects/Bones")
+        # Add preview or other options if needed
+        # Enable rename only if a valid pattern is selected
+        row_rename.enabled = 0 <= pr.active_pattern_index < len(pr.patterns)
 
 
-class MODRENAMER_OT_AddPattern(bpy.types.Operator):
-    """Add a new naming pattern"""
+# --- Import/Export Operators ---
 
-    bl_idname = "modrenamer.add_pattern"
-    bl_label = "Add Pattern"
+class MODRENAMER_OT_ExportPatterns(bpy.types.Operator, ExportHelper):
+    """Export naming patterns to a JSON file"""
 
-    pattern_name: StringProperty(name="Pattern Name", default="New Pattern")
+    bl_idname = "modrenamer.export_patterns"
+    bl_label = "Export Patterns"
+    bl_options = {"PRESET"}  # PRESET オプションはファイル選択ダイアログを改善する
 
-    # pattern_type: EnumProperty(
-    #     name="Object Type", items=RENAMABLE_OBJECT_TYPES, default="POSE_BONE"
-    # )
+    # ExportHelper settings
+    filename_ext = ".json"
+    filter_glob: StringProperty(default="*.json", options={'HIDDEN'})
 
+    # New property to control export scope
+    export_selected: BoolProperty(
+        name="Export Selected Pattern Only",
+        description="If checked, only the currently active pattern will be exported",
+        default=False
+    )  # type: ignore
+
+    def execute(self, context):
+        pr = prefs(context)
+        if not self.filepath:
+            self.report({'ERROR'}, "No filepath specified for export.")
+            return {'CANCELLED'}
+
+        pattern_idx_to_export = None
+        if self.export_selected:
+            if 0 <= pr.active_pattern_index < len(pr.patterns):
+                pattern_idx_to_export = pr.active_pattern_index
+                self.bl_label = f"Export Pattern: {pr.patterns[pattern_idx_to_export].name}"  # Dynamic label
+            else:
+                self.report({'WARNING'}, "No pattern selected or index invalid. Cannot export selected.")
+                # Optionally fall back to exporting all, or just cancel
+                return {'CANCELLED'}  # Cancel if specific export failed
+        success, message = pr.export_patterns(self.filepath, pattern_index=pattern_idx_to_export)
+        if success:
+            report_message = f"Pattern '{pr.patterns[pattern_idx_to_export].name}' exported to {self.filepath}" if self.export_selected and pattern_idx_to_export is not None else f"All patterns exported to {self.filepath}"
+            self.report({'INFO'}, report_message)
+            return {'FINISHED'}
+        else:
+            error_report = f"Failed to export patterns: {message}" if message else "Failed to export patterns due to an unknown error."
+            self.report({'ERROR'}, error_report)
+            return {'CANCELLED'}
+
+
+class MODRENAMER_OT_ImportPatterns(bpy.types.Operator, ImportHelper):
+    """Import naming patterns from a JSON file"""
+
+    bl_idname = "modrenamer.import_patterns"
+    bl_label = "Import Patterns"
+    bl_options = {"PRESET", "UNDO"}
+
+    # ImportHelper settings
+    filename_ext = ".json"
+    filter_glob: StringProperty(default="*.json", options={'HIDDEN'})
+
+    # Enum property for import mode
+    import_mode: EnumProperty(
+        name="Import Mode",
+        description="How to handle patterns with the same ID as existing ones",
+        items=[
+            ('OVERWRITE_ALL', "Overwrite All", "Replace all existing patterns with imported ones (Default)"),
+            ('MERGE_SKIP', "Merge (Skip Conflicts)", "Add new patterns, skip existing IDs"),
+            ('MERGE_RENAME', "Merge (Rename Conflicts)", "Add new patterns, rename imported patterns with existing IDs"),
+            ('MERGE_OVERWRITE', "Merge (Overwrite Conflicts)", "Add new patterns, replace existing patterns with the same ID"),
+        ],
+        default='OVERWRITE_ALL'
+    )  # type: ignore
+
+    def execute(self, context):
+        pr = prefs(context)
+        if not self.filepath:
+            self.report({'ERROR'}, "No filepath specified for import.")
+            return {'CANCELLED'}
+
+        # Pass the selected import mode to the import function
+        success, message = pr.import_patterns(self.filepath, import_mode=self.import_mode)
+        if success:
+            self.report({'INFO'}, f"Patterns successfully imported from {self.filepath} (Mode: {self.import_mode})")
+            # UI を更新するためにエリアを再描画
+            for window in context.window_manager.windows:
+                for area in window.screen.areas:
+                    if area.type in {'PREFERENCES', 'VIEW_3D'}:
+                        area.tag_redraw()
+            return {'FINISHED'}
+        else:
+            error_report = f"Failed to import patterns: {message}" if message else "Failed to import patterns due to an unknown error."
+            self.report({'ERROR'}, error_report)
+            return {'CANCELLED'}
+
+    # Use invoke_props_dialog to show options before file browser
     def invoke(self, context, event):
-        return context.window_manager.invoke_props_dialog(self)
+        # This will open the file browser AFTER the dialog is confirmed
+        context.window_manager.invoke_props_dialog(self)
+        return {'RUNNING_MODAL'}  # Important: Return RUNNING_MODAL after invoke_props_dialog
 
+    # Draw method for invoke_props_dialog
     def draw(self, context):
         layout = self.layout
-        layout.prop(self, "pattern_name")
-        # layout.prop(self, "pattern_type")
-
-    def execute(self, context):
-        pr = prefs()
-        pattern_id = f"pattern_{len(pr.patterns) + 1}"
-
-        pattern = pr.add_pattern(pattern_id, self.pattern_name)
-        pr.active_pattern_index = len(pr.patterns) - 1
-
-        return {"FINISHED"}
-
-
-class MODRENAMER_OT_RemovePattern(bpy.types.Operator):
-    """Remove the selected naming pattern"""
-
-    bl_idname = "modrenamer.remove_pattern"
-    bl_label = "Remove Pattern"
-
-    def execute(self, context):
-        pr = prefs()
-
-        if not pr.patterns:
-            return {"CANCELLED"}
-
-        pr.remove_pattern(pr.active_pattern_index)
-
-        if pr.active_pattern_index >= len(pr.patterns):
-            pr.active_pattern_index = max(0, len(pr.patterns) - 1)
-
-        return {"FINISHED"}
-
-
-# New operators for Edit Mode functionality
-
-
-class MODRENAMER_OT_ToggleEditMode(bpy.types.Operator):
-    """Toggle edit mode for the current pattern"""
-
-    bl_idname = "modrenamer.toggle_edit_mode"
-    bl_label = "Toggle Edit Mode"
-
-    def execute(self, context):
-        pr = prefs()
-        pr.edit_mode = not pr.edit_mode
-        return {"FINISHED"}
-
-
-class MODRENAMER_OT_AddElement(bpy.types.Operator):
-    """Add a new naming element to the pattern"""
-
-    bl_idname = "modrenamer.add_element"
-    bl_label = "Add Element"
-
-    element_type: EnumProperty(
-        name="Element Type", items=ELEMENT_TYPE_ITEMS, default="text"
-    )
-
-    display_name: StringProperty(name="Display Name", default="New Element")
-
-    def invoke(self, context, event):
-        return context.window_manager.invoke_props_dialog(self)
-
-    def draw(self, context):
-        layout = self.layout
-        layout.prop(self, "element_type")
-        layout.prop(self, "display_name")
-
-    def execute(self, context):
-        pr = prefs()
-        active_idx = pr.active_pattern_index
-
-        if active_idx >= len(pr.patterns):
-            self.report({"ERROR"}, "No active naming pattern selected")
-            return {"CANCELLED"}
-
-        pattern = pr.patterns[active_idx]
-
-        # Generate a unique ID
-        element_id = f"{self.element_type}_{len(pattern.elements) + 1}"
-
-        # TODO: 現在のidxの直後に追加する
-        # Add the new element
-        element = pattern.add_element(element_id, self.element_type, self.display_name)
-
-        # Set active element to the new one
-        pattern.active_element_index = len(pattern.elements) - 1
-
-        return {"FINISHED"}
-
-
-class MODRENAMER_OT_RemoveElement(bpy.types.Operator):
-    """Remove the selected naming element from the pattern"""
-
-    bl_idname = "modrenamer.remove_element"
-    bl_label = "Remove Element"
-
-    # TODO: 削除してよいか確認Popupを表示する
-
-    def execute(self, context):
-        pr = prefs()
-        active_idx = pr.active_pattern_index
-
-        if active_idx >= len(pr.patterns):
-            self.report({"ERROR"}, "No active naming pattern selected")
-            return {"CANCELLED"}
-
-        pattern = pr.patterns[active_idx]
-
-        if pattern.active_element_index >= len(pattern.elements):
-            self.report({"ERROR"}, "No active element selected")
-            return {"CANCELLED"}
-
-        # Remove the element
-        pattern.remove_element(pattern.active_element_index)
-
-        # Adjust active index if needed
-        if pattern.active_element_index >= len(pattern.elements):
-            pattern.active_element_index = max(0, len(pattern.elements) - 1)
-
-        return {"FINISHED"}
-
-
-class MODRENAMER_OT_MoveElementUp(bpy.types.Operator):
-    """Move the selected element up in the order"""
-
-    bl_idname = "modrenamer.move_element_up"
-    bl_label = "Move Element Up"
-
-    def execute(self, context):
-        pr = prefs()
-        active_idx = pr.active_pattern_index
-
-        if active_idx >= len(pr.patterns):
-            return {"CANCELLED"}
-
-        pattern = pr.patterns[active_idx]
-
-        if pattern.active_element_index <= 0 or pattern.active_element_index >= len(
-            pattern.elements
-        ):
-            return {"CANCELLED"}
-
-        pattern.move_element_up(pattern.active_element_index)
-
-        return {"FINISHED"}
-
-
-class MODRENAMER_OT_MoveElementDown(bpy.types.Operator):
-    """Move the selected element down in the order"""
-
-    bl_idname = "modrenamer.move_element_down"
-    bl_label = "Move Element Down"
-
-    def execute(self, context):
-        pr = prefs()
-        active_idx = pr.active_pattern_index
-
-        if active_idx >= len(pr.patterns):
-            return {"CANCELLED"}
-
-        pattern = pr.patterns[active_idx]
-
-        if (
-            pattern.active_element_index < 0
-            or pattern.active_element_index >= len(pattern.elements) - 1
-        ):
-            return {"CANCELLED"}
-
-        pattern.move_element_down(pattern.active_element_index)
-
-        return {"FINISHED"}
-
-
-# Text Item management operators
-
-
-class MODRENAMER_OT_AddTextItem(bpy.types.Operator):
-    """Add a new text item to the element"""
-
-    bl_idname = "modrenamer.add_text_item"
-    bl_label = "Add Text Item"
-
-    element_index: IntProperty(name="Element Index", default=0, options={"SKIP_SAVE"})
-
-    item_name: StringProperty(name="Item Name", default="", options={"SKIP_SAVE"})
-
-    def invoke(self, context, event):
-        # return context.window_manager.invoke_props_dialog(self)
-        return self.execute(context)
-
-    def draw(self, context):
-        layout = self.layout
-        layout.prop(self, "item_name")
-
-    def execute(self, context):
-        pr = prefs()
-        active_idx = pr.active_pattern_index
-
-        if active_idx >= len(pr.patterns):
-            return {"CANCELLED"}
-
-        pattern = pr.patterns[active_idx]
-
-        if self.element_index >= len(pattern.elements):
-            return {"CANCELLED"}
-
-        element = pattern.elements[self.element_index]
-
-        # Add the new item
-        # TODO: 現在のidxの直後に追加する
-        item = element.items.add()
-        item.name = self.item_name
-
-        # Set active item to the new one
-        element.active_item_index = len(element.items) - 1
-
-        return {"FINISHED"}
-
-
-class MODRENAMER_OT_RemoveTextItem(bpy.types.Operator):
-    """Remove the selected text item from the element"""
-
-    bl_idname = "modrenamer.remove_text_item"
-    bl_label = "Remove Text Item"
-
-    element_index: IntProperty(name="Element Index", default=0)
-
-    def execute(self, context):
-        pr = prefs()
-        active_idx = pr.active_pattern_index
-
-        if active_idx >= len(pr.patterns):
-            return {"CANCELLED"}
-
-        pattern = pr.patterns[active_idx]
-
-        if self.element_index >= len(pattern.elements):
-            return {"CANCELLED"}
-
-        element = pattern.elements[self.element_index]
-
-        if element.active_item_index >= len(element.items):
-            return {"CANCELLED"}
-
-        # Remove the item
-        element.items.remove(element.active_item_index)
-
-        # Adjust active index if needed
-        if element.active_item_index >= len(element.items):
-            element.active_item_index = max(0, len(element.items) - 1)
-
-        return {"FINISHED"}
-
-
-class MODRENAMER_OT_MoveTextItemUp(bpy.types.Operator):
-    """Move the selected text item up in the list"""
-
-    bl_idname = "modrenamer.move_text_item_up"
-    bl_label = "Move Item Up"
-
-    element_index: IntProperty(name="Element Index", default=0)
-
-    def execute(self, context):
-        pr = prefs()
-        active_idx = pr.active_pattern_index
-
-        if active_idx >= len(pr.patterns):
-            return {"CANCELLED"}
-
-        pattern = pr.patterns[active_idx]
-
-        if self.element_index >= len(pattern.elements):
-            return {"CANCELLED"}
-
-        element = pattern.elements[self.element_index]
-
-        if element.active_item_index <= 0 or element.active_item_index >= len(
-            element.items
-        ):
-            return {"CANCELLED"}
-
-        # Move the item up
-        element.items.move(element.active_item_index, element.active_item_index - 1)
-        element.active_item_index -= 1
-
-        return {"FINISHED"}
-
-
-class MODRENAMER_OT_MoveTextItemDown(bpy.types.Operator):
-    """Move the selected text item down in the list"""
-
-    bl_idname = "modrenamer.move_text_item_down"
-    bl_label = "Move Item Down"
-
-    element_index: IntProperty(name="Element Index", default=0)
-
-    def execute(self, context):
-        pr = prefs()
-        active_idx = pr.active_pattern_index
-
-        if active_idx >= len(pr.patterns):
-            return {"CANCELLED"}
-
-        pattern = pr.patterns[active_idx]
-
-        if self.element_index >= len(pattern.elements):
-            return {"CANCELLED"}
-
-        element = pattern.elements[self.element_index]
-
-        if (
-            element.active_item_index < 0
-            or element.active_item_index >= len(element.items) - 1
-        ):
-            return {"CANCELLED"}
-
-        # Move the item down
-        element.items.move(element.active_item_index, element.active_item_index + 1)
-        element.active_item_index += 1
-
-        return {"FINISHED"}
-
-
-class MODRENAMER_OT_CreateDefaultPatterns(bpy.types.Operator):
-    """Create default naming patterns"""
-
-    bl_idname = "modrenamer.create_default_patterns"
-    bl_label = "Create Default Patterns"
-
-    def execute(self, context):
-        pr = prefs()
-        pr.create_default_patterns()
-        self.report({"INFO"}, "Default patterns created")
-        return {"FINISHED"}
+        layout.label(text="Select Import Mode:")
+        layout.prop(self, "import_mode")
+        layout.separator()
+        if self.import_mode == 'OVERWRITE_ALL':
+            layout.label(text="Warning: This will replace ALL current patterns!", icon='ERROR')
+        else:
+            layout.label(text="Existing patterns will be merged based on the mode.", icon='INFO')

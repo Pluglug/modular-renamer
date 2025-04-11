@@ -1,10 +1,10 @@
 # pyright: reportInvalidTypeForm=false
 # DEPENDS_ON = ["props"]
 import json
-from typing import List, Optional
-
+import os
+from typing import List, Optional, Tuple, Dict
 import bpy
-from bpy.types import AddonPreferences
+from bpy.types import AddonPreferences, Operator
 from bpy.props import (
     BoolProperty,
     CollectionProperty,
@@ -16,7 +16,7 @@ from bpy.props import (
 )
 from bpy.app.translations import contexts as i18n_contexts
 
-from .addon import ADDON_ID, prefs
+from .addon import ADDON_ID, prefs, VERSION
 from .core.constants import ELEMENT_TYPE_ITEMS, POSITION_ENUM_ITEMS, SEPARATOR_ITEMS
 from .core.pattern.facade import PatternFacade
 # from .ui.props import NamingPatternProperty
@@ -275,6 +275,64 @@ class NamingPatternProperty(bpy.types.PropertyGroup, ModifiedPropMixin):
             self.elements.move(index, index + 1)
             self.active_element_index = index + 1
 
+    def to_dict(self) -> Dict:
+        """Converts the pattern to a dictionary for export."""
+        pattern_data = {
+            "id": self.id,
+            "name": self.name,
+            "elements": [],
+        }
+        for element in self.elements:
+            element_config = {
+                "id": element.id,
+                "display_name": element.display_name,
+                "type": element.element_type,
+                "enabled": element.enabled,
+                "order": element.order,
+                "separator": element.separator,
+            }
+            # Add type-specific properties
+            if element.element_type == "text":
+                element_config["items"] = [item.name for item in element.items]
+            elif element.element_type == "numeric_counter":
+                element_config["padding"] = element.padding
+            elif element.element_type == "position":
+                element_config["xaxis_type"] = element.xaxis_type
+                element_config["xaxis_enabled"] = element.xaxis_enabled
+                element_config["yaxis_enabled"] = element.yaxis_enabled
+                element_config["zaxis_enabled"] = element.zaxis_enabled
+
+            pattern_data["elements"].append(element_config)
+        return pattern_data
+
+    def from_dict(self, data: Dict):
+        """Loads the pattern from a dictionary."""
+        self.id = data.get("id", "")
+        self.name = data.get("name", "")
+        self.elements.clear()
+        for element_config in data.get("elements", []):
+            element = self.elements.add()
+            element.id = element_config.get("id", "")
+            element.display_name = element_config.get("display_name", "")
+            element.element_type = element_config.get("type", "text")
+            element.enabled = element_config.get("enabled", True)
+            element.order = element_config.get("order", 0)
+            element.separator = element_config.get("separator", "_")
+
+            # Set type-specific properties
+            if element.element_type == "text":
+                element.items.clear()
+                for item_name in element_config.get("items", []):
+                    item = element.items.add()
+                    item.name = item_name
+            elif element.element_type == "numeric_counter":
+                element.padding = element_config.get("padding", 2)
+            elif element.element_type == "position":
+                element.xaxis_type = element_config.get("xaxis_type", "L|R")
+                element.xaxis_enabled = element_config.get("xaxis_enabled", True)
+                element.yaxis_enabled = element_config.get("yaxis_enabled", False)
+                element.zaxis_enabled = element_config.get("zaxis_enabled", False)
+
 
 # ----------------------- End Props -----------------------
 
@@ -360,150 +418,237 @@ class ModularRenamerPreferences(AddonPreferences):
                 self.active_pattern_index = max(0, self.active_pattern_index - 1)
             self.patterns.remove(index)
 
-    # Export patterns to JSON
-    def export_patterns(self, filepath):
-        data = []
-        for pattern in self.patterns:
-            pattern_data = {
-                "id": pattern.id,
-                "name": pattern.name,
-                "elements": [],
-            }
+    # --- Internal Helper Methods ---
+    def _get_export_data(self, patterns_to_export: Optional[List[NamingPatternProperty]] = None) -> Dict:
+        """Prepares the data dictionary for export, including version and patterns."""
+        addon_version = VERSION
+        
+        if patterns_to_export is None:
+            patterns_to_export = self.patterns
+            
+        patterns_data = [p.to_dict() for p in patterns_to_export]
+        
+        return {
+            "version": addon_version,
+            "patterns": patterns_data
+        }
 
-            for element in pattern.elements:
-                element_config = {
-                    "id": element.id,
-                    "display_name": element.display_name,
-                    "type": element.element_type,
-                    "enabled": element.enabled,
-                    "order": element.order,
-                    "separator": element.separator,
-                }
-
-                # Add type-specific properties
-                if element.element_type == "text":
-                    element_config["items"] = [item.name for item in element.items]
-                elif element.element_type == "numeric_counter":
-                    element_config["padding"] = element.padding
-                # elif element.element_type == "regex":
-                #     element_config["pattern"] = element.pattern
-                # elif element.element_type == "date":
-                #     element_config["date_format"] = element.date_format
-                # elif element.element_type == "free_text":
-                #     element_config["default_text"] = element.default_text
-                elif element.element_type == "position":
-                    # PositionElement の設定を正しくエクスポート
-                    element_config["xaxis_type"] = element.xaxis_type
-                    element_config["xaxis_enabled"] = element.xaxis_enabled
-                    element_config["yaxis_enabled"] = element.yaxis_enabled
-                    element_config["zaxis_enabled"] = element.zaxis_enabled
-
-                pattern_data["elements"].append(element_config)
-
-            data.append(pattern_data)
+    # --- Export/Import Methods ---
+    def export_patterns(self, filepath: str, pattern_index: Optional[int] = None) -> Tuple[bool, str]:
+        """Exports naming patterns to a JSON file, including addon version."""
+        log.info(f"Exporting patterns to: {filepath} (Pattern Index: {pattern_index})")
+        
+        patterns_to_export_list = []
+        if pattern_index is not None:
+            if 0 <= pattern_index < len(self.patterns):
+                patterns_to_export_list.append(self.patterns[pattern_index])
+            else:
+                msg = f"Invalid pattern index provided: {pattern_index}"
+                log.error(msg)
+                return False, msg
+        else:
+            patterns_to_export_list = list(self.patterns)
+            
+        if not patterns_to_export_list:
+             msg = "No patterns selected or available for export."
+             log.warning(msg)
+             return False, msg
 
         try:
-            with open(filepath, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=4, ensure_ascii=False)
-            log.info(f"Patterns exported to {filepath}")
-            return True
+            export_data = self._get_export_data(patterns_to_export_list)
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(export_data, f, ensure_ascii=False, indent=4)
+            log.info(f"Successfully exported {len(patterns_to_export_list)} patterns.")
+            return True, "" # Success
+        except IOError as e:
+            msg = f"Failed to write file: {e}"
+            log.exception(msg)
+            return False, msg
         except Exception as e:
-            log.error(f"Error exporting patterns: {e}")
-            return False
+            msg = f"An unexpected error occurred during export: {e}"
+            log.exception(msg)
+            return False, msg
 
-    # Import patterns from JSON
-    def import_patterns(self, filepath):
+    def import_patterns(self, filepath: str, import_mode: str = 'OVERWRITE_ALL') -> Tuple[bool, str]:
+        """Imports naming patterns from a JSON file, handling version info."""
+        log.info(f"Importing patterns from: {filepath} (Mode: {import_mode})")
+        if not os.path.exists(filepath):
+            msg = f"Import file not found: {filepath}"
+            log.error(msg)
+            return False, msg
+
         try:
-            with open(filepath, "r", encoding="utf-8") as f:
+            with open(filepath, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-
-            # Clear existing patterns before import
-            self.patterns.clear()
-            self.active_pattern_index = 0  # インデックスリセット
-
-            for pattern_data in data:
-                pattern = self.add_pattern(
-                    pattern_data.get(
-                        "id", f"imported_pattern_{len(self.patterns)}"
-                    ),  # IDフォールバック
-                    pattern_data.get("name", "Imported Pattern"),  # Nameフォールバック
-                )
-
-                for element_config in pattern_data.get("elements", []):
-                    elem_id = element_config.get("id", f"elem_{len(pattern.elements)}")
-                    elem_type = element_config.get("type", "text")  # Typeフォールバック
-                    elem_disp_name = element_config.get(
-                        "display_name", "Imported Element"
-                    )
-
-                    element = pattern.add_element(
-                        elem_id,
-                        elem_type,
-                        elem_disp_name,
-                    )
-
-                    element.enabled = element_config.get("enabled", True)
-                    element.order = element_config.get(
-                        "order", len(pattern.elements) - 1
-                    )
-                    element.separator = element_config.get("separator", "_")
-
-                    # Set type-specific properties safely
-                    if element.element_type == "text" and "items" in element_config:
-                        element.items.clear()  # Clear default items if any
-                        for item_name in element_config.get("items", []):
-                            item = element.items.add()
-                            item.name = item_name
-
-                    elif (
-                        element.element_type == "numeric_counter"
-                        and "padding" in element_config
-                    ):
-                        # Make sure padding has a valid value
-                        padding_val = element_config.get("padding", 2)
-                        element.padding = max(
-                            1, min(int(padding_val), 10)
-                        )  # Clamp between 1 and 10
-
-                    # elif element.element_type == "regex" and "pattern" in element_config:
-                    #     element.pattern = element_config.get("pattern", "(.*)")
-
-                    # elif element.element_type == "date" and "date_format" in element_config:
-                    #     element.date_format = element_config.get("date_format", "%Y%m%d")
-
-                    # elif element.element_type == "free_text" and "default_text" in element_config:
-                    #     element.default_text = element_config.get("default_text", "")
-
-                    elif element.element_type == "position":
-                        element.xaxis_type = element_config.get("xaxis_type", "L|R")
-                        element.xaxis_enabled = element_config.get(
-                            "xaxis_enabled", True
-                        )
-                        element.yaxis_enabled = element_config.get(
-                            "yaxis_enabled", False
-                        )
-                        element.zaxis_enabled = element_config.get(
-                            "zaxis_enabled", False
-                        )
-
-            log.info(f"Patterns imported from {filepath}")
-            return True
-
-        except FileNotFoundError:
-            log.error(f"Import file not found: {filepath}")
-            return False
-        except json.JSONDecodeError:
-            log.error(f"Error decoding JSON from file: {filepath}")
-            return False
+        except json.JSONDecodeError as e:
+            msg = f"Failed to decode JSON: {e}"
+            log.exception(msg)
+            return False, msg
+        except IOError as e:
+            msg = f"Failed to read file: {e}"
+            log.exception(msg)
+            return False, msg
         except Exception as e:
-            log.error(f"Error importing patterns: {e}")
-            # インポート失敗時も部分的に読み込まれたパターンは残る可能性がある
-            return False
+            msg = f"An unexpected error occurred during file reading: {e}"
+            log.exception(msg)
+            return False, msg
 
-    def create_default_patterns(self):
+        imported_patterns_data = []
+        file_version = (0, 0, 0) # Default if version key is missing
+        
+        # Check data format (new dict format or old list format)
+        if isinstance(data, dict):
+            if 'patterns' in data and 'version' in data:
+                imported_patterns_data = data['patterns']
+                file_version = tuple(data['version']) if isinstance(data['version'], list) else data['version'] # Handle list/tuple
+                log.info(f"Importing patterns from file version: {file_version}")
+                # You could add version comparison logic here if needed
+                # current_version = get_addon_version()
+                # if file_version > current_version: log.warning("Importing from newer version file")
+            else:
+                msg = "Invalid JSON structure: Missing 'version' or 'patterns' key."
+                log.error(msg)
+                return False, msg
+        elif isinstance(data, list):
+            log.warning("Importing from old format (list without version info).")
+            imported_patterns_data = data
+        else:
+            msg = f"Invalid JSON format: Expected dict or list, got {type(data)}."
+            log.error(msg)
+            return False, msg
+            
+        if not isinstance(imported_patterns_data, list):
+            msg = "Invalid JSON structure: 'patterns' key does not contain a list."
+            log.error(msg)
+            return False, msg
+            
+        # Proceed with import logic based on import_mode
+        try:
+            if import_mode == 'OVERWRITE_ALL':
+                self.patterns.clear()
+                for pattern_data in imported_patterns_data:
+                    new_pattern = self.patterns.add()
+                    new_pattern.from_dict(pattern_data)
+                log.info(f"Overwrite All: Imported {len(imported_patterns_data)} patterns.")
+            
+            elif import_mode.startswith('MERGE'):
+                existing_ids = {p.id for p in self.patterns}
+                imported_count = 0
+                skipped_count = 0
+                renamed_count = 0
+                overwritten_count = 0
+
+                for pattern_data in imported_patterns_data:
+                    pattern_id = pattern_data.get('id')
+                    if not pattern_id:
+                        log.warning("Skipping pattern data without an ID during merge.")
+                        skipped_count += 1
+                        continue
+                        
+                    if pattern_id in existing_ids:
+                        # Conflict detected
+                        if import_mode == 'MERGE_SKIP':
+                            log.debug(f"Merge Skip: Skipping existing ID '{pattern_id}'.")
+                            skipped_count += 1
+                            continue
+                        elif import_mode == 'MERGE_RENAME':
+                            original_id = pattern_id
+                            count = 1
+                            while pattern_id in existing_ids:
+                                pattern_id = f"{original_id}_imported_{count}"
+                                count += 1
+                            log.debug(f"Merge Rename: Renaming conflicting ID '{original_id}' to '{pattern_id}'.")
+                            pattern_data['id'] = pattern_id # Update data before import
+                            pattern_data['name'] = f"{pattern_data.get('name', original_id)} (Imported)" # Append to name
+                            new_pattern = self.patterns.add()
+                            new_pattern.from_dict(pattern_data)
+                            existing_ids.add(pattern_id) # Add renamed ID to check against future imports in this batch
+                            renamed_count += 1
+                            imported_count += 1
+                        elif import_mode == 'MERGE_OVERWRITE':
+                            # Find existing pattern and overwrite
+                            log.debug(f"Merge Overwrite: Overwriting existing ID '{pattern_id}'.")
+                            existing_pattern = next((p for p in self.patterns if p.id == pattern_id), None)
+                            if existing_pattern:
+                                existing_pattern.from_dict(pattern_data)
+                                overwritten_count += 1
+                            else:
+                                # Should not happen if ID was in existing_ids, but handle defensively
+                                log.warning(f"Merge Overwrite: Pattern with ID '{pattern_id}' not found despite being in existing_ids set. Adding as new.")
+                                new_pattern = self.patterns.add()
+                                new_pattern.from_dict(pattern_data)
+                                imported_count += 1
+                        else:
+                            # Should not happen, but catch unexpected mode
+                            log.error(f"Unknown merge mode during conflict: {import_mode}")
+                            skipped_count += 1
+                    else:
+                        # No conflict, just add
+                        new_pattern = self.patterns.add()
+                        new_pattern.from_dict(pattern_data)
+                        existing_ids.add(pattern_id) # Add to set for checks within this import batch
+                        imported_count += 1
+                
+                log.info(f"Merge complete: Added={imported_count}, Skipped={skipped_count}, Renamed={renamed_count}, Overwritten={overwritten_count}")
+            else:
+                msg = f"Invalid import_mode: {import_mode}"
+                log.error(msg)
+                return False, msg
+                
+            # Finalize: Set active index if needed, maybe mark patterns as non-modified
+            if self.patterns:
+                self.active_pattern_index = max(0, min(self.active_pattern_index, len(self.patterns) - 1))
+            else:
+                 self.active_pattern_index = 0 # Reset if empty
+            # Mark all as unmodified after import?
+            # for p in self.patterns: p.modified = False 
+            return True, "" # Success
+            
+        except Exception as e:
+            msg = f"An unexpected error occurred during pattern import logic: {e}"
+            log.exception(msg)
+            # Attempt to clean up potentially partially imported patterns in case of error?
+            # Difficult to do safely without transactions.
+            return False, msg
+
+    # --- Auto-Save Method ---
+    def auto_save_patterns(self) -> Tuple[bool, str]:
+        """Saves all current patterns to the auto-save file."""
+        filepath = get_autosave_filepath()
+        if not filepath:
+            msg = "Could not determine auto-save file path."
+            log.error(msg)
+            return False, msg
+        
+        log.info(f"Auto-saving all patterns to: {filepath}")
+        try:
+            # Use the common export data generation method
+            export_data = self._get_export_data() # Gets all patterns by default
+            
+            # Ensure directory exists
+            dir_path = os.path.dirname(filepath)
+            if not os.path.exists(dir_path):
+                os.makedirs(dir_path)
+                log.info(f"Created directory for auto-save: {dir_path}")
+                
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(export_data, f, ensure_ascii=False, indent=4)
+            log.info(f"Successfully auto-saved {len(self.patterns)} patterns.")
+            return True, "" # Success
+        except IOError as e:
+            msg = f"Failed to write auto-save file: {e}"
+            log.exception(msg)
+            return False, msg
+        except Exception as e:
+            msg = f"An unexpected error occurred during auto-save: {e}"
+            log.exception(msg)
+            return False, msg
+
+    # --- Default Pattern Creation ---
+    def create_default_pattern(self, pattern_type: str):
         # デフォルトパターンが既に存在するかチェック（ID基準が望ましい）
         existing_ids = {p.id for p in self.patterns}
-        if "pose_bone_default" in existing_ids:
+        if pattern_type == "pose_bone_default" and pattern_type in existing_ids:
             log.info(
                 "Default pattern 'pose_bone_default' already exists. Skipping creation."
             )
@@ -605,12 +750,76 @@ class ModularRenamerPreferences(AddonPreferences):
         layout = self.layout
         LoggerPreferences.draw(self.logger_prefs, layout)
 
+        # --- Import/Export Buttons ---
+        box = layout.box()
+        row = box.row()
+        row.label(text="Pattern Management:", icon='SETTINGS')
+        row = box.row()
+        # Export ボタン
+        row.operator("modrenamer.export_patterns", icon='EXPORT')
+        # Import ボタン (警告を促すテキストとアイコン)
+        row.operator("modrenamer.import_patterns", icon='IMPORT', text="Import (Overwrite)")
 
-def register():
+        # --- Default Patterns Button ---
+        box = layout.box()
+        row = box.row()
+        row.label(text="Default Patterns:", icon='QUESTION')
+        row = box.row()
+        # デフォルトパターン作成ボタン (既存ロジックを尊重)
+        if not any(p.id == "pose_bone_default" for p in self.patterns):
+            row.operator("modrenamer.create_default_patterns", icon='ADD')
+        else:
+            row.label(text="Default bone pattern already exists.")
 
-    # デフォルトパターンの作成
-    pr = prefs()
-    if not hasattr(pr, "patterns") or not pr.patterns:
-        pr.create_default_patterns()
-    if not hasattr(pr, "active_pattern_index") or not pr.active_pattern_index:
-        pr.active_pattern_index = 0
+        layout.separator()
+        # --- Auto-Save Section ---
+        box_as = layout.box()
+        box_as.label(text="Auto-Save Patterns:")
+        row_as = box_as.row()
+        # Button to manually trigger auto-save for testing
+        op = row_as.operator("modrenamer.autosave_patterns", text="Save Patterns Now", icon='ADD')
+        # Display auto-save path (read-only) - Use the helper function
+        autosave_path = self.get_autosave_filepath()
+        if autosave_path:
+            box_as.label(text=f"Current Save Location: {autosave_path}")
+        else:
+            box_as.label(text="Could not determine save location.", icon='ERROR')
+        # TODO: Add preference setting to enable/disable auto-save on quit/change etc.
+        # box_as.prop(self, "enable_auto_save")
+
+    # --- Helper function for paths ---
+    def get_addon_config_dir(self):
+        """Gets the addon's configuration directory path."""
+        script_file = os.path.realpath(__file__)
+        addon_dir = os.path.dirname(script_file)
+        # Store config inside the addon directory itself for simplicity.
+        config_dir = os.path.join(addon_dir, "config")
+        try:
+            os.makedirs(config_dir, exist_ok=True)
+        except OSError as e:
+            log.error(f"Could not create config directory: {config_dir}. Error: {e}")
+            return None # Indicate failure
+        return config_dir
+
+    def get_autosave_filepath(self):
+        """Gets the full path for the patterns auto-save file."""
+        config_dir = self.get_addon_config_dir()
+        if config_dir:
+            return os.path.join(config_dir, "patterns_autosave.json")
+        return None # Return None if config dir couldn't be created
+
+# --- Operator for Manual Auto-Save ---
+class MODRENAMER_OT_AutoSavePatterns(bpy.types.Operator):
+    """Manually trigger the auto-saving of all patterns"""
+    bl_idname = "modrenamer.autosave_patterns"
+    bl_label = "Auto-Save Patterns Now" # More descriptive label
+    bl_options = {'REGISTER'} # No UNDO needed for saving file
+
+    def execute(self, context):
+        pr = prefs(context)
+        success, msg = pr.auto_save_patterns()
+        if success:
+            self.report({'INFO'}, "Patterns successfully saved.") # Simple confirmation
+        else:
+            self.report({'ERROR'}, f"Auto-save failed: {msg}")
+        return {'FINISHED'} # Always finished, even if failed
